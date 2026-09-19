@@ -40,6 +40,8 @@ export const ToolResultBlock = z.object({
   error: SafeError.optional(),
   durationMs: z.number().int().nonnegative().optional(),
   microcredits: Microcredits.optional(),
+  /** Provider-side run id (Magica runId) so the card keeps showing it after the run is terminal. */
+  providerRunId: z.string().max(128).optional(),
 });
 
 export const CitationBlock = z.object({

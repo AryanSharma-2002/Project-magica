@@ -68,6 +68,7 @@ export const FileMeta = z.object({
   sizeBytes: z.number().int().positive(),
   position: z.number().int().nonnegative(),
 });
+export type FileMeta = z.infer<typeof FileMeta>;
 export const CreateAssemblyRequest = z.object({ chatId: Id.optional(), files: z.array(FileMeta).min(1).max(10) });
 export const CreateAssemblyResponse = z.object({
   /** Pass straight to Uppy Transloadit plugin: { params, signature }. params is the exact signed JSON string. */
