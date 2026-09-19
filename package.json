@@ -20,7 +20,8 @@
     "db:studio": "prisma studio",
     "trigger:dev": "trigger.dev dev",
     "trigger:deploy": "trigger.dev deploy",
-    "docs:dev": "cd docs && mintlify dev"
+    "docs:dev": "cd docs && mintlify dev",
+    "docs:openapi": "tsx scripts/generate-openapi.ts"
   },
   "dependencies": {
     "@agent-chat/contracts": "workspace:*",

@@ -1,0 +1,17 @@
+---
+title: Webhooks
+---
+
+Register an endpoint with `POST /webhooks` (`url`, `events`). The signing `secret` is returned once.
+
+### Events
+`agent.started`, `agent.completed`, `agent.failed`, `tool.completed`
+
+### Payload
+```json
+{ "id": "evt_…", "type": "agent.completed", "createdAt": "2026-09-19T10:00:00.000Z",
+  "data": { "runId": "run_…", "chatId": "chat_…", "status": "completed" } }
+```
+
+### Signature
+Header `X-AgentChat-Signature: t=<unix seconds>,v1=<hex>` where `v1 = HMAC_SHA256(secret, "<t>.<raw body>")`. Reject if `|now − t| > 300s` or the digest does not match (constant-time compare). Deliveries retry with exponential backoff; use `id` to deduplicate.

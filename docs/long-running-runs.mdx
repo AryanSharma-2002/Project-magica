@@ -1,0 +1,16 @@
+---
+title: Long-running runs
+---
+
+Agent turns can take minutes. The API never blocks on them.
+
+1. `POST /chats/{chatId}/messages` (or `/completions`) validates, reserves a small refundable credit admission, persists your message and dispatches **one** durable run. It returns `202` with `runId` and realtime access.
+2. Follow progress with `GET /runs/{runId}`: `queued → running → (waiting) → completed | failed | cancelled`. `stopping` means a cancel was requested.
+3. `waiting` means a **waitpoint** needs a decision: `POST /waitpoints/{id}/complete` with a resolution matching its `type`. Waitpoints expire after 10 minutes; the run then fails with `waitpoint_expired` and can be continued with a new message.
+4. `POST /runs/{runId}/cancel` stops cooperatively; partial text, tool results and generated assets are preserved on the failed/cancelled assistant message.
+
+### Idempotency
+Send `Idempotency-Key` on every start request. Retrying with the same key returns the original run (`deduplicated: true`) and never starts duplicate work or charges.
+
+### Credits
+OpenRouter Free usage costs 0 credits. Magica tools are estimated before execution, reserved, and settled exactly once per invocation from the provider's reported usage. Amounts are integer **microcredits** (1 credit = 1,000,000).

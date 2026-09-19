@@ -1,0 +1,12 @@
+---
+title: Authentication
+---
+
+Two bearer schemes are accepted on `Authorization: Bearer <token>`:
+
+| Scheme | Who | Token |
+|---|---|---|
+| Clerk session | first-party web app | Clerk session JWT |
+| API key | public API | `ak_live_…` (shown once at creation) |
+
+API keys are stored hashed (SHA-256). Revoked keys return `401 unauthorized`. Accessing another account's resource returns `404 not_found` — never `403` — so resource ids do not leak.

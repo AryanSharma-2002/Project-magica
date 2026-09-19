@@ -1,0 +1,10 @@
+---
+title: Realtime
+---
+
+Realtime is a transport, not the source of truth. `SendMessageResponse.realtime` contains a scoped Trigger.dev public access token for the run:
+
+- **Run metadata** (`RunMetadata` schema): status, current step, tool states keyed by tool call id, waitpoint, generated assets.
+- **Text stream** (`agent-text`): `{ "t": "text" | "thinking", "i": <block index>, "d": "<delta>" }` chunks. Replay from index 0 on reconnect.
+
+Both carry the block `index` so a client can reconcile them with the persisted message content (`GET /chats/{chatId}/messages`). When realtime is unavailable, poll `GET /runs/{runId}` — the durable state is always complete.

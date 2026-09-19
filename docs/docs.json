@@ -1,0 +1,22 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Agent Chat API",
+  "colors": { "primary": "#6d5dfc", "light": "#8f83ff", "dark": "#5346d6" },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guides",
+        "groups": [
+          { "group": "Getting started", "pages": ["introduction", "authentication", "long-running-runs"] },
+          { "group": "Reference", "pages": ["errors", "webhooks", "realtime"] }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [{ "group": "Endpoints", "openapi": "openapi.json" }]
+      }
+    ]
+  },
+  "footer": { "socials": {} }
+}

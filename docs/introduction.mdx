@@ -1,0 +1,31 @@
+---
+title: Introduction
+description: Agent Chat public API — durable agent runs, typed Magica tools, webhooks.
+---
+
+The Agent Chat API lets you start and follow **long-running, tool-using agent conversations** and run the three Magica media tools (`crop_image`, `gpt_image_2`, `merge_videos`) directly.
+
+## Model
+
+- A **chat** holds **messages**. Sending a message starts exactly one **run**.
+- A run is durable: it survives client disconnects and reloads. Its state is always readable from `GET /runs/{runId}`.
+- Runs may pause at a **waitpoint** (approval, options, plan, credit) that a human completes.
+- Every request and response is validated against a runtime contract. Errors share one envelope (see [Errors](/errors)).
+
+## Base URL
+
+```
+https://<your-deployment>/api/v1
+```
+
+## Quick start
+
+```bash
+curl -X POST "$BASE/api/v1/completions" \
+  -H "Authorization: Bearer ak_live_..." \
+  -H "Content-Type: application/json" \
+  -H "Idempotency-Key: $(uuidgen)" \
+  -d '{"message":"Generate a poster of a lighthouse at dawn, then crop it to a square"}'
+```
+
+The response is `202 Accepted` with a `runId` and a `statusUrl`. Poll it or register a [webhook](/webhooks).

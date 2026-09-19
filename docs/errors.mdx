@@ -1,0 +1,26 @@
+---
+title: Errors
+---
+
+Every error uses one envelope:
+
+```json
+{ "error": { "code": "run_active", "message": "This chat already has a run in progress.", "retryable": false, "details": {}, "traceId": "0d1f…" } }
+```
+
+`code` is stable and maps to an HTTP status:
+
+| code | status | meaning |
+|---|---|---|
+| `validation_error` | 400 | request failed contract validation (`details.issues`) |
+| `unauthorized` | 401 | missing/invalid token |
+| `not_found` | 404 | unknown or not yours |
+| `run_active` | 409 | one active run per chat |
+| `insufficient_credits` | 402 | `details.required` / `details.available` (microcredits) |
+| `rate_limited` / `provider_rate_limited` | 429 | honour `Retry-After` |
+| `payload_too_large` / `unsupported_media_type` | 413 / 415 | attachment limits |
+| `provider_unavailable` | 503 | OpenRouter Free or Magica temporarily unavailable — no paid fallback is attempted |
+| `waitpoint_expired` | 410 | the human decision timed out |
+| `internal` | 500 | quote `traceId` when reporting |
+
+Include the `traceId` (also sent as the `x-trace-id` header) when contacting support.
