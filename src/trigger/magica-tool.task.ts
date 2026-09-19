@@ -84,6 +84,10 @@ export const magicaToolTask = task({
           metadata.parent.set(`tool:${invocation.id}`, { progress, label: label ?? null });
         },
         attachments: [],
+        existingProviderRunId: invocation.providerRunId,
+        onProviderRunId: async (providerRunId) => {
+          await prisma.toolInvocation.update({ where: { id: invocation.id }, data: { providerRunId } });
+        },
       };
 
       const result = await tool.execute(input, ctx);

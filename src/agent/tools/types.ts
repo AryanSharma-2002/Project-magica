@@ -20,6 +20,10 @@ export type ToolContext = {
   onProgress?: (progress: number, label?: string) => void;
   /** Ready user attachments for this turn, for tools that accept media */
   attachments: ReadonlyArray<{ id: string; kind: string; url: string; mimeType: string }>;
+  /** Provider-side run id already persisted for this invocation (resume: poll instead of re-submitting). */
+  existingProviderRunId?: string | null;
+  /** Called the instant a provider run id is known so orchestration can persist it for reconciliation. */
+  onProviderRunId?: (providerRunId: string) => Promise<void> | void;
 };
 
 export type ToolEffect =
