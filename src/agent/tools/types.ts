@@ -22,6 +22,10 @@ export type ToolContext = {
   attachments: ReadonlyArray<{ id: string; kind: string; url: string; mimeType: string }>;
 };
 
+export type ToolEffect =
+  | { type: "asset"; asset: Omit<AssetBlock, "type" | "attachmentId"> }
+  | { type: "record_skill"; skillName: string; assetPath: string; contentHash: string };
+
 export type ToolExecutionResult<O> = {
   output: O;
   /** Provider-side run id for reconciliation (Magica runId) */
@@ -47,8 +51,11 @@ export type ToolDefinition<I extends z.ZodType = z.ZodType, O extends z.ZodType 
   /** Estimated microcredits BEFORE execution (used for reservation + approval threshold). */
   estimate: (input: z.output<I>, ctx: ToolContext) => Promise<number>;
   execute: (input: z.output<I>, ctx: ToolContext) => Promise<ToolExecutionResult<z.output<O>>>;
-  /** Extract generated media from output so orchestration can persist Attachments + AssetBlocks. */
-  toAssets?: (output: z.output<O>) => Omit<AssetBlock, "type">[];
+  /**
+   * Declarative side effects derived from a successful output. Orchestration applies them
+   * (persist Attachments + asset blocks, record RunSkill). Tools never write to the DB themselves.
+   */
+  effects?: (output: z.output<O>, ctx: ToolContext) => ToolEffect[];
   /** Redact/trim input before it is persisted or echoed to the model. Default: identity. */
   sanitizeInput?: (input: z.output<I>) => JsonValue;
 };

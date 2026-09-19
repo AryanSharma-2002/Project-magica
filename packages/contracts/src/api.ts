@@ -27,6 +27,7 @@ export type UpdateChatRequest = z.infer<typeof UpdateChatRequest>;
 // ---- messages ----
 export const ListMessagesQuery = CursorQuery;
 export const ListMessagesResponse = Page(Message);
+export type ListMessagesQuery = z.infer<typeof ListMessagesQuery>;
 
 export const SendMessageRequest = z.object({
   text: z.string().max(20_000),
@@ -85,9 +86,11 @@ export type AttachmentUploadedRequest = z.infer<typeof AttachmentUploadedRequest
 
 export const ListAttachmentsQuery = CursorQuery.extend({ kind: AttachmentKind.optional(), source: z.enum(["upload", "library", "generated"]).optional() });
 export const ListAttachmentsResponse = Page(Attachment);
+export type ListAttachmentsQuery = z.infer<typeof ListAttachmentsQuery>;
 
 // ---- credits ----
 export const BalanceResponse = z.object({ microcredits: Microcredits, updatedAt: IsoDate });
+export type BalanceResponse = z.infer<typeof BalanceResponse>;
 export const ListLedgerResponse = Page(LedgerEntry);
 
 // ---- search ----
@@ -95,6 +98,7 @@ export const SearchQuery = CursorQuery.extend({ q: z.string().min(1).max(200) })
 export const SearchHit = z.object({ chatId: Id, chatTitle: z.string(), messageId: Id.nullable(), snippet: z.string().max(500), createdAt: IsoDate });
 export const SearchResponse = Page(SearchHit);
 export type SearchHit = z.infer<typeof SearchHit>;
+export type SearchQuery = z.infer<typeof SearchQuery>;
 
 // ---- public API (bonus) ----
 export const PublicCompletionRequest = z.object({
@@ -116,3 +120,6 @@ export const WebhookEvent = z.object({
   data: z.object({ runId: Id, chatId: Id, status: z.string(), toolInvocationId: Id.optional(), toolName: z.string().optional() }),
 });
 export type WebhookEvent = z.infer<typeof WebhookEvent>;
+export type WebhookEndpoint = z.infer<typeof WebhookEndpoint>;
+export type PublicCompletionRequest = z.infer<typeof PublicCompletionRequest>;
+export type CreateWebhookRequest = z.infer<typeof CreateWebhookRequest>;
