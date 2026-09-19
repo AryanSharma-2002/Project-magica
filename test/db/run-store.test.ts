@@ -64,6 +64,37 @@ describe("run store", () => {
     expect(count).toBe(1);
   });
 
+  it("updateInvocation accepts null for the nullable JSON columns (output, error)", async () => {
+    const user = await createUser();
+    const chat = await createChat(user.id);
+    const { run, assistantMsg } = await makeRun(user.id, chat.id);
+    const store = createRunStore();
+
+    const created = await store.createInvocation({
+      runId: run.id,
+      messageId: assistantMsg.id,
+      toolCallId: "call_null",
+      toolName: "crop_image",
+      input: {},
+      blockIndex: 0,
+      microcreditsEstimated: 100,
+    });
+
+    await store.updateInvocation(created.invocationId, {
+      status: "failed",
+      output: null,
+      error: { code: "provider_error", message: "boom", retryable: false },
+    });
+    let row = await prisma.toolInvocation.findUniqueOrThrow({ where: { id: created.invocationId } });
+    expect(row.status).toBe("FAILED");
+    expect(row.output).toBeNull();
+    expect(row.error).toEqual({ code: "provider_error", message: "boom", retryable: false });
+
+    await store.updateInvocation(created.invocationId, { error: null });
+    row = await prisma.toolInvocation.findUniqueOrThrow({ where: { id: created.invocationId } });
+    expect(row.error).toBeNull();
+  });
+
   it("finalize is idempotent: a second call does not overwrite the persisted result or double-release admission", async () => {
     const user = await createUser();
     const chat = await createChat(user.id);

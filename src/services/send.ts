@@ -112,8 +112,12 @@ export async function sendMessage(
   // 2. Rate limit.
   await assertSendRateLimit(userId);
 
-  // 3. Idempotency.
-  const idempotencyKey = idempotencyKeyHeader?.trim() ? idempotencyKeyHeader.trim() : crypto.randomUUID();
+  // 3. Idempotency. AgentRun.idempotencyKey is a single global-unique column, so the client's
+  // (or generated) key is namespaced by (userId, chatId) before it ever touches the DB. This
+  // makes a cross-user key collision structurally impossible rather than something a query
+  // filter has to remember to enforce.
+  const rawIdempotencyKey = idempotencyKeyHeader?.trim() ? idempotencyKeyHeader.trim() : crypto.randomUUID();
+  const idempotencyKey = `${userId}:${chatId}:${rawIdempotencyKey}`;
   const existingRun = await prisma.agentRun.findUnique({ where: { idempotencyKey } });
   if (existingRun) return buildDedupResponse(existingRun);
 

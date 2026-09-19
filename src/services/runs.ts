@@ -41,21 +41,29 @@ export async function cancelRun(userId: string, runId: string): Promise<AgentRun
   const existing = await prisma.agentRun.findFirst({ where: { id: runId, userId } });
   if (!existing) throw errors.notFound("AgentRun");
 
-  const transitioned = await prisma.agentRun.updateMany({
-    where: { id: runId, status: { in: ["QUEUED", "RUNNING", "WAITING"] } },
+  // Atomically claim "queued and never started" against the DB, not an in-process snapshot: if
+  // this update lands, no task will ever observe this run, so it's safe to finalize CANCELLED
+  // immediately. This is raced against `markRunning` through the WHERE clause itself (whichever
+  // write commits first wins) rather than against a `findFirst` read taken moments earlier.
+  const claimedNeverStarted = await prisma.agentRun.updateMany({
+    where: { id: runId, status: "QUEUED", startedAt: null },
     data: { status: "STOPPING", cancelRequestedAt: new Date() },
   });
 
-  if (transitioned.count > 0) {
-    if (existing.status === "QUEUED" && !existing.startedAt) {
-      const assistantMessage = await prisma.message.findUniqueOrThrow({ where: { id: existing.assistantMessageId } });
-      await createRunStore().finalize(runId, {
-        status: "cancelled",
-        blocks: parseContentBlocks(assistantMessage.content),
-        usage: ZERO_USAGE,
-        routedModel: null,
-      });
-    } else if (existing.status === "WAITING") {
+  if (claimedNeverStarted.count === 1) {
+    const assistantMessage = await prisma.message.findUniqueOrThrow({ where: { id: existing.assistantMessageId } });
+    await createRunStore().finalize(runId, {
+      status: "cancelled",
+      blocks: parseContentBlocks(assistantMessage.content),
+      usage: ZERO_USAGE,
+      routedModel: null,
+    });
+  } else {
+    const transitioned = await prisma.agentRun.updateMany({
+      where: { id: runId, status: { in: ["QUEUED", "RUNNING", "WAITING"] } },
+      data: { status: "STOPPING", cancelRequestedAt: new Date() },
+    });
+    if (transitioned.count > 0) {
       const waitpointRow = await prisma.waitpoint.findFirst({ where: { runId, status: "PENDING" } });
       if (waitpointRow) {
         const cancelled = await prisma.waitpoint.updateMany({

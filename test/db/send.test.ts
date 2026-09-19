@@ -136,6 +136,26 @@ describe("sendMessage", () => {
     expect(release?.amount).toBe(10_000n);
   });
 
+  it("does not leak a run across users who reuse the same Idempotency-Key value", async () => {
+    const userA = await createUser();
+    const userB = await createUser();
+    const chatA = await createChat(userA.id);
+    const chatB = await createChat(userB.id);
+
+    const resultA = await sendMessage(userA.id, chatA.id, req({ text: "from A" }), "shared-key");
+    const resultB = await sendMessage(userB.id, chatB.id, req({ text: "from B" }), "shared-key");
+
+    expect(resultB.deduplicated).toBe(false);
+    expect(resultB.runId).not.toBe(resultA.runId);
+    expect(resultB.chatId).toBe(chatB.id);
+    expect(resultB.messageId).not.toBe(resultA.messageId);
+
+    // B must never be able to read A's run through the "same key" path either.
+    const bAgain = await sendMessage(userB.id, chatB.id, req({ text: "from B" }), "shared-key");
+    expect(bAgain.runId).toBe(resultB.runId);
+    expect(bAgain.deduplicated).toBe(true);
+  });
+
   it("rate limit: the 21st send within a minute is rejected with retryAfterSeconds", async () => {
     const user = await createUser();
     for (let i = 0; i < 20; i++) {

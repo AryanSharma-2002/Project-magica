@@ -183,10 +183,13 @@ export function createRunStore(): RunStore {
     },
 
     async updateInvocation(invocationId: string, patch: InvocationPatch): Promise<void> {
+      // Nullable JSON columns reject a plain JS `null` from Prisma (it needs the explicit
+      // Prisma.DbNull marker to mean "SQL NULL"); plain nullable scalar columns like
+      // providerRunId accept `null` directly.
       const data: Record<string, unknown> = {};
       if (patch.status !== undefined) data.status = patch.status.toUpperCase();
-      if (patch.output !== undefined) data.output = patch.output;
-      if (patch.error !== undefined) data.error = patch.error;
+      if (patch.output !== undefined) data.output = patch.output === null ? Prisma.DbNull : patch.output;
+      if (patch.error !== undefined) data.error = patch.error === null ? Prisma.DbNull : patch.error;
       if (patch.providerRunId !== undefined) data.providerRunId = patch.providerRunId;
       if (patch.startedAt !== undefined) data.startedAt = patch.startedAt;
       if (patch.finishedAt !== undefined) data.finishedAt = patch.finishedAt;
