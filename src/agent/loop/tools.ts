@@ -317,7 +317,8 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
     const blockIndex = pushToolUse(blocks, realtime, call, created.invocationId, sanitized);
 
     if (created.existing && isTerminalStatus(created.status)) {
-      const error: SafeError | undefined = created.status === "failed" ? { code: "internal", message: "This tool call previously failed.", retryable: false } : undefined;
+      const error: SafeError | undefined =
+        created.status === "failed" ? (created.error ?? { code: "internal", message: "This tool call previously failed.", retryable: false }) : undefined;
       pending.push({
         kind: "immediate",
         call,

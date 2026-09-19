@@ -1,4 +1,4 @@
-import type { Attachment, ContentBlock, JsonValue, Message, ToolInvocationStatus } from "@agent-chat/contracts";
+import { Attachment, ContentBlock, JsonValue, Message, ToolInvocationStatus, type SafeError } from "@agent-chat/contracts";
 import type { FinalizeInput, InvocationCreate, InvocationPatch, RunRecord, RunSnapshot, RunStore } from "@/agent/loop/ports";
 import type { ToolEffect } from "@/agent/tools/types";
 
@@ -13,6 +13,7 @@ export type FakeInvocationRecord = {
   microcreditsCharged: number;
   microcreditsEstimated: number;
   providerRunId: string | null;
+  error?: SafeError | null;
 };
 
 export type FakeStoreOptions = {
@@ -94,7 +95,15 @@ export class FakeStore implements RunStore {
     const key = `${input.runId}:${input.toolCallId}`;
     const existing = this.invocationsByKey.get(key);
     if (existing) {
-      return { invocationId: existing.invocationId, existing: true, status: existing.status, output: existing.output, microcreditsCharged: existing.microcreditsCharged };
+      return {
+        invocationId: existing.invocationId,
+        existing: true,
+        status: existing.status,
+        output: existing.output,
+        error: existing.error ?? null,
+        providerRunId: existing.providerRunId,
+        microcreditsCharged: existing.microcreditsCharged,
+      };
     }
     invocationCounter += 1;
     const invocationId = `inv_${invocationCounter}`;
@@ -111,7 +120,7 @@ export class FakeStore implements RunStore {
       providerRunId: null,
     };
     this.invocationsByKey.set(key, record);
-    return { invocationId, existing: false, status: "pending", output: null, microcreditsCharged: 0 };
+    return { invocationId, existing: false, status: "pending", output: null, error: null, providerRunId: null, microcreditsCharged: 0 };
   }
 
   async updateInvocation(invocationId: string, patch: InvocationPatch): Promise<void> {

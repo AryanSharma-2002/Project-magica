@@ -94,7 +94,16 @@ export interface RunStore {
   /** assistant message content = blocks, status STREAMING. Called after every loop step. */
   checkpoint(runId: string, blocks: ContentBlock[]): Promise<void>;
   /** Idempotent on (runId, toolCallId). `existing` = a previous attempt already created it. */
-  createInvocation(input: InvocationCreate): Promise<{ invocationId: string; existing: boolean; status: ToolInvocationStatus; output: JsonValue | null; microcreditsCharged: number }>;
+  createInvocation(input: InvocationCreate): Promise<{
+    invocationId: string;
+    existing: boolean;
+    status: ToolInvocationStatus;
+    output: JsonValue | null;
+    /** Stored SafeError when a previous attempt failed (resume support). */
+    error: SafeError | null;
+    providerRunId: string | null;
+    microcreditsCharged: number;
+  }>;
   updateInvocation(invocationId: string, patch: InvocationPatch): Promise<void>;
   /** Upsert RunSkill; deduplicated=true when the same (skill, asset, hash) was already recorded. */
   recordSkill(runId: string, skillName: string, assetPath: string, contentHash: string): Promise<{ deduplicated: boolean }>;

@@ -5,6 +5,7 @@ import {
   ToolInvocationStatus as ToolInvocationStatusContract,
   blocksToPlainText,
   type ContentBlock,
+  SafeError as SafeErrorSchema,
 } from "@agent-chat/contracts";
 import type {
   FinalizeInput,
@@ -164,7 +165,7 @@ export function createRunStore(): RunStore {
             status: "PENDING",
           },
         });
-        return { invocationId: created.id, existing: false, status: "pending" as const, output: null, microcreditsCharged: 0 };
+        return { invocationId: created.id, existing: false, status: "pending" as const, output: null, error: null, providerRunId: null, microcreditsCharged: 0 };
       } catch (err) {
         if (isUniqueViolationOn(err, "ToolInvocation_runId_toolCallId_key")) {
           const existing = await prisma.toolInvocation.findUniqueOrThrow({
@@ -175,6 +176,8 @@ export function createRunStore(): RunStore {
             existing: true,
             status: ToolInvocationStatusContract.parse(existing.status.toLowerCase()),
             output: JsonValueSchema.nullable().parse(existing.output),
+            error: existing.error === null ? null : SafeErrorSchema.parse(existing.error),
+            providerRunId: existing.providerRunId,
             microcreditsCharged: mc(existing.microcreditsCharged),
           };
         }
