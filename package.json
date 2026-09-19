@@ -1,0 +1,56 @@
+{
+  "name": "agent-chat-backend",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev -p 3001",
+    "build": "next build",
+    "start": "next start -p 3001",
+    "typecheck": "tsc --noEmit -p tsconfig.json && pnpm --filter @agent-chat/contracts typecheck",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:studio": "prisma studio",
+    "trigger:dev": "trigger.dev dev",
+    "trigger:deploy": "trigger.dev deploy",
+    "docs:dev": "cd docs && mintlify dev"
+  },
+  "dependencies": {
+    "@agent-chat/contracts": "workspace:*",
+    "@clerk/backend": "3.18.1",
+    "@prisma/adapter-pg": "7.10.0",
+    "@prisma/client": "7.10.0",
+    "@trigger.dev/sdk": "4.6.3",
+    "gray-matter": "4.0.3",
+    "next": "16.3.5",
+    "openai": "7.19.0",
+    "pg": "8.23.0",
+    "pino": "10.3.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "svix": "2.5.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@trigger.dev/build": "4.6.3",
+    "@types/node": "26.6.2",
+    "@types/pg": "8.15.5",
+    "@types/react": "19.2.14",
+    "@vitest/coverage-v8": "5.0.1",
+    "dotenv": "18.0.1",
+    "eslint": "10.11.0",
+    "eslint-config-next": "16.3.5",
+    "msw": "2.15.0",
+    "prisma": "7.10.0",
+    "tsx": "4.23.13",
+    "typescript": "5.9.3",
+    "vitest": "5.0.1"
+  }
+}

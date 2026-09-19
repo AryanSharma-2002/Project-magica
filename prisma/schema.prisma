@@ -1,0 +1,410 @@
+// Data model for agent-chat-backend. PostgreSQL is the only application database.
+// Money is stored as BigInt microcredits (1 credit = 1_000_000 microcredits).
+// JSONB is used ONLY for validated content blocks / provider-neutral payloads (see packages/contracts).
+// Two constraints live in hand-written SQL (see prisma/migrations/*_constraints):
+//   1) one active AgentRun per Chat  -> partial unique index
+//   2) Message.searchVector           -> generated tsvector column + GIN index
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------- enums ----------------
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+  TOOL
+}
+
+enum MessageStatus {
+  PENDING
+  STREAMING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum RunStatus {
+  QUEUED
+  RUNNING
+  WAITING
+  STOPPING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ToolInvocationStatus {
+  PENDING
+  WAITING_APPROVAL
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum WaitpointType {
+  APPROVAL
+  OPTIONS
+  PLAN
+  CREDIT
+}
+
+enum WaitpointStatus {
+  PENDING
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+enum AttachmentKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  FILE
+}
+
+enum AttachmentSource {
+  UPLOAD
+  LIBRARY
+  GENERATED
+}
+
+enum AttachmentStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  EXPIRED
+}
+
+enum LedgerEntryType {
+  GRANT
+  RESERVE
+  RELEASE
+  CHARGE
+  REFUND
+  ADJUST
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  DELIVERED
+  FAILED
+}
+
+// ---------------- core ----------------
+
+model User {
+  id            String   @id @default(cuid())
+  clerkUserId   String   @unique
+  email         String?
+  /// Cached sum of CreditLedger.amount; always updated in the same transaction as the ledger row.
+  creditBalance BigInt   @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  chats            Chat[]
+  messages         Message[]
+  runs             AgentRun[]
+  attachments      Attachment[]
+  ledger           CreditLedger[]
+  apiKeys          ApiKey[]
+  webhookEndpoints WebhookEndpoint[]
+}
+
+model Chat {
+  id            String    @id @default(cuid())
+  userId        String
+  title         String    @default("New chat")
+  pinned        Boolean   @default(false)
+  lastMessageAt DateTime?
+  deletedAt     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
+  runs     AgentRun[]
+  attachments Attachment[]
+
+  // chat list: newest activity first, cursor on (lastMessageAt, id); pinned filter.
+  @@index([userId, deletedAt, lastMessageAt(sort: Desc), id])
+  @@index([userId, deletedAt, pinned, lastMessageAt(sort: Desc)])
+}
+
+model Message {
+  id        String        @id @default(cuid())
+  chatId    String
+  userId    String
+  role      MessageRole
+  status    MessageStatus @default(COMPLETED)
+  /// ContentBlock[] validated by packages/contracts (ContentBlocks)
+  content   Json          @default("[]")
+  /// Plain-text projection of text blocks; feeds searchVector.
+  textContent String      @default("")
+  /// Generated column (to_tsvector('english', textContent)); managed by raw SQL migration.
+  searchVector Unsupported("tsvector")?
+  runId     String?
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  chat        Chat         @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
+  toolInvocations ToolInvocation[]
+  runAsUser      AgentRun? @relation("RunUserMessage")
+  runAsAssistant AgentRun? @relation("RunAssistantMessage")
+
+  // newest-first history with older-message cursor
+  @@index([chatId, createdAt(sort: Desc), id])
+  @@index([runId])
+}
+
+model Attachment {
+  id         String           @id @default(cuid())
+  userId     String
+  chatId     String?
+  messageId  String?
+  toolInvocationId String?
+  kind       AttachmentKind
+  source     AttachmentSource
+  status     AttachmentStatus @default(UPLOADING)
+  filename   String
+  mimeType   String
+  sizeBytes  Int              @default(0)
+  width      Int?
+  height     Int?
+  durationMs Int?
+  url        String?
+  previewUrl String?
+  storageKey String?
+  /// Transloadit Assembly id (nullable for generated assets)
+  assemblyId String?
+  assemblyStatus String?
+  /// Order within a message; client-assigned, server-validated.
+  position   Int              @default(0)
+  /// Temporary provider URLs expire; UI shows an "expired" state after this.
+  expiresAt  DateTime?
+  /// Sanitized provider metadata (no secrets)
+  meta       Json?
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chat    Chat?    @relation(fields: [chatId], references: [id], onDelete: SetNull)
+  message Message? @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  toolInvocation ToolInvocation? @relation(fields: [toolInvocationId], references: [id], onDelete: SetNull)
+
+  @@index([messageId, position])
+  @@index([userId, source, createdAt(sort: Desc), id])
+  @@index([assemblyId])
+}
+
+model AgentRun {
+  id                 String    @id @default(cuid())
+  chatId             String
+  userId             String
+  userMessageId      String    @unique
+  assistantMessageId String    @unique
+  /// Trigger.dev run id once dispatched
+  triggerRunId       String?   @unique
+  status             RunStatus @default(QUEUED)
+  /// Dispatch idempotency (client Idempotency-Key or server-generated)
+  idempotencyKey     String    @unique
+  requestedModel     String
+  routedModel        String?
+  planMode           Boolean   @default(false)
+  currentStep        String?
+  /// RunUsage (packages/contracts)
+  usage              Json?
+  microcreditsReserved BigInt  @default(0)
+  microcreditsCharged  BigInt  @default(0)
+  /// SafeError (packages/contracts)
+  error              Json?
+  cancelRequestedAt  DateTime?
+  heartbeatAt        DateTime?
+  startedAt          DateTime?
+  finishedAt         DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  chat             Chat             @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userMessage      Message          @relation("RunUserMessage", fields: [userMessageId], references: [id], onDelete: Cascade)
+  assistantMessage Message          @relation("RunAssistantMessage", fields: [assistantMessageId], references: [id], onDelete: Cascade)
+  toolInvocations  ToolInvocation[]
+  skills           RunSkill[]
+  waitpoints       Waitpoint[]
+  ledger           CreditLedger[]
+
+  @@index([chatId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, heartbeatAt])
+}
+
+model ToolInvocation {
+  id             String               @id @default(cuid())
+  /// Null only for standalone public-API tool runs.
+  runId          String?
+  userId         String
+  messageId      String?
+  /// Provider tool_call id from the LLM response
+  toolCallId     String
+  toolName       String
+  status         ToolInvocationStatus @default(PENDING)
+  /// Sanitized, validated input (never contains provider keys)
+  input          Json
+  output         Json?
+  /// SafeError
+  error          Json?
+  /// Magica runId for reconciliation
+  providerRunId  String?
+  microcreditsEstimated BigInt        @default(0)
+  microcreditsCharged   BigInt        @default(0)
+  /// Position of the tool_use block in the assistant message
+  blockIndex     Int?
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  durationMs     Int?
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+
+  run       AgentRun?   @relation(fields: [runId], references: [id], onDelete: Cascade)
+  message   Message?    @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  waitpoint Waitpoint?
+  ledger    CreditLedger[]
+  attachments Attachment[]
+
+  // one invocation per tool call per run => parallel calls never duplicate work
+  @@unique([runId, toolCallId])
+  @@index([runId, createdAt])
+  @@index([providerRunId])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model RunSkill {
+  id          String   @id @default(cuid())
+  runId       String
+  skillName   String
+  /// "" for SKILL.md itself, otherwise the asset path
+  assetPath   String   @default("")
+  contentHash String
+  loadedAt    DateTime @default(now())
+
+  run AgentRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, skillName, assetPath])
+}
+
+model Waitpoint {
+  id               String          @id @default(cuid())
+  runId            String
+  toolInvocationId String?         @unique
+  type             WaitpointType
+  status           WaitpointStatus @default(PENDING)
+  /// Trigger.dev wait token id; completion is idempotent (status transition first, then completeToken)
+  triggerTokenId   String          @unique
+  /// WaitpointPrompt
+  prompt           Json
+  /// WaitpointResolution
+  resolution       Json?
+  expiresAt        DateTime
+  resolvedAt       DateTime?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  run            AgentRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  toolInvocation ToolInvocation? @relation(fields: [toolInvocationId], references: [id], onDelete: SetNull)
+
+  @@index([runId, status])
+}
+
+model CreditLedger {
+  id               String          @id @default(cuid())
+  userId           String
+  runId            String?
+  toolInvocationId String?
+  type             LedgerEntryType
+  /// Signed microcredits. reserve/charge are negative; grant/release/refund positive.
+  amount           BigInt
+  balanceAfter     BigInt
+  /// e.g. "reserve:<runId>", "charge:<invocationId>", "release:<invocationId>", "grant:signup:<userId>"
+  idempotencyKey   String          @unique
+  description      String          @default("")
+  metadata         Json?
+  createdAt        DateTime        @default(now())
+
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  run            AgentRun?       @relation(fields: [runId], references: [id], onDelete: SetNull)
+  toolInvocation ToolInvocation? @relation(fields: [toolInvocationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt(sort: Desc), id])
+}
+
+// ---------------- public API (bonus) ----------------
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  prefix     String
+  hashedKey  String    @unique
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model WebhookEndpoint {
+  id        String   @id @default(cuid())
+  userId    String
+  url       String
+  secret    String
+  events    String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([userId])
+}
+
+model WebhookDelivery {
+  id             String                @id @default(cuid())
+  endpointId     String
+  eventType      String
+  payload        Json
+  status         WebhookDeliveryStatus @default(PENDING)
+  attempts       Int                   @default(0)
+  nextAttemptAt  DateTime?
+  lastError      String?
+  idempotencyKey String                @unique
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([status, nextAttemptAt])
+}
+
+// ---------------- infra ----------------
+
+/// DB-backed token bucket so rate limits work on serverless without Redis.
+model RateLimitBucket {
+  key       String   @id
+  tokens    Int
+  updatedAt DateTime
+}
