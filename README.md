@@ -26,7 +26,7 @@ Local Postgres: `createdb agent_chat agent_chat_test`. Tests run against `agent_
 ## Deploy
 
 - API: Vercel (root of this repo). Set all variables from `.env.example`.
-- Tasks: `pnpm trigger:deploy` (project ref in `trigger.config.ts` via `TRIGGER_PROJECT_REF`).
+- Tasks: `pnpm db:generate && pnpm trigger:deploy` (the generated Prisma client is gitignored; `agent-skills/` is bundled via `additionalFiles`; project ref via `TRIGGER_PROJECT_REF`).
 - Docs: `docs/` → Mintlify.
 
 ## Architecture overview
