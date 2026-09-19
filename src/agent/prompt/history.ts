@@ -1,4 +1,4 @@
-import type { Attachment, Message } from "@agent-chat/contracts";
+import type { Attachment, ContentBlock, Message } from "@agent-chat/contracts";
 import { blocksToPlainText } from "@agent-chat/contracts";
 import { missingToolResultContent, toolResultToLlmContent } from "@/agent/loop/blocks";
 import type { LlmContentPart, LlmMessage, LlmToolCall } from "@/agent/llm/types";
@@ -50,12 +50,21 @@ function buildUserGroup(message: Message, isCurrent: boolean, currentAttachments
   return { role: "user", llmMessages: [llm], chars: estimateChars(llm) };
 }
 
-function buildAssistantGroup(message: Message): Group {
+/**
+ * Converts an assistant message's content blocks into LlmMessage[]: text -> content, tool_use ->
+ * toolCalls, followed by one "tool" message per tool_use (from its tool_result, or a synthesized
+ * error if none was recorded). Returns [] for a block set with no text and no tool_use, since an
+ * assistant message with null content and no tool_calls is not a valid OpenAI-shape message.
+ *
+ * Shared by historyToLlmMessages (past, persisted assistant Messages) AND the live loop (the
+ * CURRENT run's in-progress blocks, which are not yet a persisted Message — see loop/index.ts).
+ */
+export function assistantBlocksToLlmMessages(blocks: ContentBlock[]): LlmMessage[] {
   const textParts: string[] = [];
   const toolCalls: LlmToolCall[] = [];
   const resultContentByCallId = new Map<string, string>();
 
-  for (const block of message.content) {
+  for (const block of blocks) {
     if (block.type === "text") {
       textParts.push(block.text);
     } else if (block.type === "tool_use") {
@@ -66,6 +75,8 @@ function buildAssistantGroup(message: Message): Group {
     // thinking / reasoning / usage / asset / citation / error blocks carry no information the
     // model needs replayed into a future turn's messages; they are intentionally skipped here.
   }
+
+  if (textParts.length === 0 && toolCalls.length === 0) return [];
 
   const assistantMsg: LlmMessage = {
     role: "assistant",
@@ -78,7 +89,11 @@ function buildAssistantGroup(message: Message): Group {
     content: resultContentByCallId.get(tc.id) ?? missingToolResultContent(),
   }));
 
-  const llmMessages = [assistantMsg, ...toolMessages];
+  return [assistantMsg, ...toolMessages];
+}
+
+function buildAssistantGroup(message: Message): Group {
+  const llmMessages = assistantBlocksToLlmMessages(message.content);
   return { role: "assistant", llmMessages, chars: llmMessages.reduce((sum, m) => sum + estimateChars(m), 0) };
 }
 

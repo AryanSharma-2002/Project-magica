@@ -8,6 +8,10 @@ import type { LiveToolState, SafeError, ToolInvocationStatus, ToolResultBlock } 
  */
 export function toolResultToLlmContent(block: ToolResultBlock): string {
   if (block.status === "completed") return JSON.stringify(block.output ?? null);
+  if (block.status === "cancelled") {
+    const error: SafeError = block.error ?? { code: "cancelled", message: "This tool call was cancelled.", retryable: false };
+    return JSON.stringify({ error });
+  }
   const error: SafeError = block.error ?? { code: "internal", message: "The tool failed.", retryable: false };
   return JSON.stringify({ error });
 }

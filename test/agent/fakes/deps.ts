@@ -23,10 +23,12 @@ export type TestHarnessOptions = {
   now?: () => Date;
   signal?: AbortSignal;
   limits?: Partial<AppLimits>;
+  /** Use a pre-built FakeStore (e.g. with a method overridden) instead of constructing one from `store`. */
+  storeOverride?: FakeStore;
 };
 
 export function buildTestHarness(opts: TestHarnessOptions) {
-  const store = new FakeStore(opts.store);
+  const store = opts.storeOverride ?? new FakeStore(opts.store);
   const credits = new FakeCredits(opts.balance ?? 1_000_000_000);
   const realtime = new FakeRealtime();
   const waitpoints = new FakeWaitpoints(opts.waitpointScript ?? []);

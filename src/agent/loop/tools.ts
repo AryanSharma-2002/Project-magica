@@ -66,14 +66,23 @@ function statusToResultStatus(status: ToolInvocationStatus): "completed" | "fail
   return "failed";
 }
 
-function pushToolUse(blocks: ContentBlock[], call: LlmToolCall, invocationId: string, input: JsonValue): void {
+/** Pushes the tool_use block and immediately reflects a "pending" LiveToolState, so a call that
+ * ends up cancelled/failed before real execution (overflow, malformed, declined, ...) is still
+ * visible in the live view rather than only appearing at the next checkpoint reconciliation. */
+function pushToolUse(blocks: ContentBlock[], realtime: RunDeps["realtime"], call: LlmToolCall, invocationId: string, input: JsonValue): number {
+  const index = blocks.length;
   blocks.push({ type: "tool_use", toolCallId: call.id, invocationId, toolName: call.name, input });
+  realtime.metadata({ tools: { [call.id]: liveToolState({ invocationId, toolName: call.name, status: "pending", index }) } });
+  return index;
 }
 
 function pushToolResult(
   blocks: ContentBlock[],
+  realtime: RunDeps["realtime"],
   call: LlmToolCall,
   invocationId: string,
+  index: number,
+  now: () => Date,
   patch: { status: "completed" | "failed" | "cancelled"; output?: JsonValue; error?: SafeError; durationMs?: number; microcredits?: number },
 ): void {
   blocks.push({
@@ -86,6 +95,19 @@ function pushToolResult(
     ...(patch.error !== undefined ? { error: patch.error } : {}),
     ...(patch.durationMs !== undefined ? { durationMs: patch.durationMs } : {}),
     ...(patch.microcredits !== undefined ? { microcredits: patch.microcredits } : {}),
+  });
+  realtime.metadata({
+    tools: {
+      [call.id]: liveToolState({
+        invocationId,
+        toolName: call.name,
+        status: patch.status,
+        index,
+        finishedAt: now().toISOString(),
+        ...(patch.error !== undefined ? { error: patch.error } : {}),
+        ...(patch.microcredits !== undefined ? { microcredits: patch.microcredits } : {}),
+      }),
+    },
   });
 }
 
@@ -157,9 +179,21 @@ export type ToolBatchArgs = {
 
 type ReadyForExecution = { call: LlmToolCall; tool: AnyToolDefinition; parsedInput: unknown; invocationId: string; estimate: number; toolUseIndex: number };
 
+type ResultPatch = { status: "completed" | "failed" | "cancelled"; output?: JsonValue; error?: SafeError; durationMs?: number; microcredits?: number };
+
+/** One call's eventual tool_result, recorded in ORIGINAL CALL ORDER as calls are prepared.
+ * "immediate" results (malformed/overflow/declined/dedupe-hit/...) already know their patch;
+ * "deferred" ones are filled in from the parallel execution phase before the final append pass -
+ * this is what guarantees call-order output even when an earlier call is deferred (executes in
+ * parallel) while a later call in the same batch resolves immediately. */
+type PendingOutcome =
+  | { kind: "immediate"; call: LlmToolCall; invocationId: string; index: number; patch: ResultPatch }
+  | { kind: "deferred"; call: LlmToolCall; invocationId: string; index: number };
+
 export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOutcome> {
   const { toolCalls, blocks, deps, run, assistantMessageId, attachments, now } = ctx;
   const cap = deps.limits.maxToolCallsPerTurn;
+  const realtime = deps.realtime;
 
   // ---- plan-mode gate: the first batch of the run only ----
   let planDeclined = false;
@@ -181,8 +215,13 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
   }
 
   const readyForExecution: ReadyForExecution[] = [];
+  // Recorded in call order as each call is prepared; the final append pass below walks this list
+  // (not toolCalls directly) so tool_result order matches call order even when an earlier call is
+  // deferred to parallel execution while a later call in the same batch resolves immediately.
+  const pending: PendingOutcome[] = [];
+  let stopReason: { status: "failed"; error: SafeError } | { status: "cancelled" } | null = null;
 
-  for (let i = 0; i < toolCalls.length; i++) {
+  for (let i = 0; i < toolCalls.length && !stopReason; i++) {
     const call = toolCalls[i]!;
 
     // ---- per-turn tool-call cap: overflow calls are cancelled without preparation ----
@@ -190,9 +229,9 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
       const invocationId = (
         await deps.store.createInvocation({ runId: run.id, messageId: assistantMessageId, toolCallId: call.id, toolName: call.name, input: {}, blockIndex: blocks.length, microcreditsEstimated: 0 })
       ).invocationId;
-      pushToolUse(blocks, call, invocationId, {});
+      const idx = pushToolUse(blocks, realtime, call, invocationId, {});
       await deps.store.updateInvocation(invocationId, { status: "cancelled", finishedAt: now() });
-      pushToolResult(blocks, call, invocationId, { status: "cancelled" });
+      pending.push({ kind: "immediate", call, invocationId, index: idx, patch: { status: "cancelled" } });
       continue;
     }
 
@@ -228,13 +267,12 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
           microcreditsEstimated: 0,
         })
       ).invocationId;
-      pushToolUse(blocks, call, invocationId, bestEffortInput);
+      const idx = pushToolUse(blocks, realtime, call, invocationId, bestEffortInput);
       await deps.store.updateInvocation(invocationId, { status: "failed", error: parseError.toSafe(), finishedAt: now() });
-      pushToolResult(blocks, call, invocationId, { status: "failed", error: parseError.toSafe() });
+      pending.push({ kind: "immediate", call, invocationId, index: idx, patch: { status: "failed", error: parseError.toSafe() } });
 
       if (streak >= 2) {
-        return {
-          kind: "stop",
+        stopReason = {
           status: "failed",
           error: new AppError("malformed_tool_call", `The model repeatedly sent invalid arguments for ${call.name}.`, { retryable: false }).toSafe(),
         };
@@ -253,12 +291,12 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
       const invocationId = (
         await deps.store.createInvocation({ runId: run.id, messageId: assistantMessageId, toolCallId: call.id, toolName: activeTool.name, input: sanitized, blockIndex: blocks.length, microcreditsEstimated: 0 })
       ).invocationId;
-      pushToolUse(blocks, call, invocationId, sanitized);
+      const idx = pushToolUse(blocks, realtime, call, invocationId, sanitized);
       const provisionalCtx = buildToolContext({ deps, run, invocationId, call, attachments });
       const effects = activeTool.effects?.(cachedOutput as never, provisionalCtx) ?? [];
       await applyEffects({ deps, run, assistantMessageId, invocationId, effects });
       await deps.store.updateInvocation(invocationId, { status: "completed", output: cachedOutput as JsonValue, microcreditsCharged: 0, durationMs: 0, finishedAt: now() });
-      pushToolResult(blocks, call, invocationId, { status: "completed", output: cachedOutput as JsonValue, microcredits: 0, durationMs: 0 });
+      pending.push({ kind: "immediate", call, invocationId, index: idx, patch: { status: "completed", output: cachedOutput as JsonValue, microcredits: 0, durationMs: 0 } });
       continue;
     }
 
@@ -267,32 +305,37 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
     const estimateCtx = buildToolContext({ deps, run, invocationId: call.id, call, attachments });
     const estimate = await activeTool.estimate(parsedInput as never, estimateCtx);
     const sanitized = (activeTool.sanitizeInput?.(parsedInput as never) ?? (parsedInput as JsonValue)) as JsonValue;
-    const blockIndex = blocks.length;
     const created = await deps.store.createInvocation({
       runId: run.id,
       messageId: assistantMessageId,
       toolCallId: call.id,
       toolName: activeTool.name,
       input: sanitized,
-      blockIndex,
+      blockIndex: blocks.length,
       microcreditsEstimated: estimate,
     });
-    pushToolUse(blocks, call, created.invocationId, sanitized);
+    const blockIndex = pushToolUse(blocks, realtime, call, created.invocationId, sanitized);
 
     if (created.existing && isTerminalStatus(created.status)) {
       const error: SafeError | undefined = created.status === "failed" ? { code: "internal", message: "This tool call previously failed.", retryable: false } : undefined;
-      pushToolResult(blocks, call, created.invocationId, {
-        status: statusToResultStatus(created.status),
-        ...(created.output !== null ? { output: created.output } : {}),
-        ...(error ? { error } : {}),
-        microcredits: created.microcreditsCharged,
+      pending.push({
+        kind: "immediate",
+        call,
+        invocationId: created.invocationId,
+        index: blockIndex,
+        patch: {
+          status: statusToResultStatus(created.status),
+          ...(created.output !== null ? { output: created.output } : {}),
+          ...(error ? { error } : {}),
+          microcredits: created.microcreditsCharged,
+        },
       });
       continue;
     }
 
     if (planDeclined) {
       await deps.store.updateInvocation(created.invocationId, { status: "cancelled", finishedAt: now() });
-      pushToolResult(blocks, call, created.invocationId, { status: "cancelled" });
+      pending.push({ kind: "immediate", call, invocationId: created.invocationId, index: blockIndex, patch: { status: "cancelled" } });
       continue;
     }
 
@@ -301,6 +344,9 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
     if (needsApproval) {
       await deps.store.setStatus(run.id, "waiting");
       await deps.store.updateInvocation(created.invocationId, { status: "waiting_approval" });
+      realtime.metadata({
+        tools: { [call.id]: liveToolState({ invocationId: created.invocationId, toolName: activeTool.name, status: "waiting_approval", index: blockIndex }) },
+      });
       const description = jsonSummary(sanitized, 2000);
       const ask = await deps.waitpoints.ask({
         runId: run.id,
@@ -320,20 +366,22 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
 
       if (ask.outcome.kind === "expired") {
         await deps.store.updateInvocation(created.invocationId, { status: "cancelled", finishedAt: now() });
-        pushToolResult(blocks, call, created.invocationId, { status: "cancelled" });
-        return { kind: "stop", status: "failed", error: waitpointExpiredError() };
+        pending.push({ kind: "immediate", call, invocationId: created.invocationId, index: blockIndex, patch: { status: "cancelled" } });
+        stopReason = { status: "failed", error: waitpointExpiredError() };
+        continue;
       }
       if (ask.outcome.kind === "cancelled") {
         await deps.store.updateInvocation(created.invocationId, { status: "cancelled", finishedAt: now() });
-        pushToolResult(blocks, call, created.invocationId, { status: "cancelled" });
-        return { kind: "stop", status: "cancelled" };
+        pending.push({ kind: "immediate", call, invocationId: created.invocationId, index: blockIndex, patch: { status: "cancelled" } });
+        stopReason = { status: "cancelled" };
+        continue;
       }
       await deps.store.setStatus(run.id, "running");
       const resolution = ask.outcome.resolution;
       const approved = resolution.type === "approval" && resolution.approved;
       if (!approved) {
         await deps.store.updateInvocation(created.invocationId, { status: "cancelled", finishedAt: now() });
-        pushToolResult(blocks, call, created.invocationId, { status: "cancelled" });
+        pending.push({ kind: "immediate", call, invocationId: created.invocationId, index: blockIndex, patch: { status: "cancelled" } });
         continue;
       }
     }
@@ -343,36 +391,56 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
     if (balance < estimate) {
       const error = errors.insufficientCredits(estimate, balance).toSafe();
       await deps.store.updateInvocation(created.invocationId, { status: "failed", error, finishedAt: now() });
-      pushToolResult(blocks, call, created.invocationId, { status: "failed", error });
-      return { kind: "stop", status: "failed", error };
+      pending.push({ kind: "immediate", call, invocationId: created.invocationId, index: blockIndex, patch: { status: "failed", error } });
+      stopReason = { status: "failed", error };
+      continue;
     }
     try {
       await deps.credits.reserveInvocation({ userId: run.userId, runId: run.id, invocationId: created.invocationId, microcredits: estimate });
     } catch (err) {
       const appErr = AppError.from(err, { code: "insufficient_credits" });
       await deps.store.updateInvocation(created.invocationId, { status: "failed", error: appErr.toSafe(), finishedAt: now() });
-      pushToolResult(blocks, call, created.invocationId, { status: "failed", error: appErr.toSafe() });
-      return { kind: "stop", status: "failed", error: appErr.toSafe() };
+      pending.push({ kind: "immediate", call, invocationId: created.invocationId, index: blockIndex, patch: { status: "failed", error: appErr.toSafe() } });
+      stopReason = { status: "failed", error: appErr.toSafe() };
+      continue;
     }
 
+    pending.push({ kind: "deferred", call, invocationId: created.invocationId, index: blockIndex });
     readyForExecution.push({ call, tool: activeTool, parsedInput, invocationId: created.invocationId, estimate, toolUseIndex: blockIndex });
   }
 
-  // ---- parallel execution (concurrency <= 4); results appended in ORIGINAL CALL ORDER ----
+  // ---- parallel execution (concurrency <= 4) ----
+  // Runs unconditionally, even if the loop above stopped partway through: calls already vetted and
+  // reserved earlier in THIS batch must still be executed and settled (charged or released) rather
+  // than left with a dangling reservation - "stop executing further tools" means no NEW calls are
+  // started past the stopping point, not that already-cleared work is abandoned mid-air.
+  const resultsByInvocationId = new Map<string, ContentBlock[]>();
   if (readyForExecution.length > 0) {
     const settled = await runWithConcurrencyLimit(readyForExecution, 4, (item) => executeOne({ deps, run, assistantMessageId, attachments, item, now, skillCache: ctx.skillCache }));
     for (let i = 0; i < readyForExecution.length; i++) {
       const item = readyForExecution[i]!;
       const result = settled[i]!;
       if (result.status === "fulfilled") {
-        blocks.push(...result.value);
+        resultsByInvocationId.set(item.invocationId, result.value);
       } else {
         const appErr = AppError.from(result.reason);
-        blocks.push({ type: "tool_result", toolCallId: item.call.id, invocationId: item.invocationId, toolName: item.tool.name, status: "failed", error: appErr.toSafe() });
+        resultsByInvocationId.set(item.invocationId, [
+          { type: "tool_result", toolCallId: item.call.id, invocationId: item.invocationId, toolName: item.tool.name, status: "failed", error: appErr.toSafe() },
+        ]);
       }
     }
   }
 
+  // ---- final append pass: tool_result (and any asset blocks) in ORIGINAL CALL ORDER ----
+  for (const outcome of pending) {
+    if (outcome.kind === "immediate") {
+      pushToolResult(blocks, realtime, outcome.call, outcome.invocationId, outcome.index, now, outcome.patch);
+    } else {
+      blocks.push(...(resultsByInvocationId.get(outcome.invocationId) ?? []));
+    }
+  }
+
+  if (stopReason) return { kind: "stop", ...stopReason };
   return { kind: "continue" };
 }
 

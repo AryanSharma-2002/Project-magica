@@ -1,5 +1,5 @@
 import type { ProviderToolSpec } from "@/agent/tools/registry";
-import { AppError, isAbortError } from "@/lib/errors";
+import { AppError } from "@/lib/errors";
 import type { LlmContentPart, LlmEvent, LlmMessage, LlmProvider, LlmRequest, LlmToolCall } from "./types";
 
 export type OpenRouterProviderOptions = {
@@ -169,7 +169,9 @@ export class OpenRouterProvider implements LlmProvider {
         yield* parseSseStream(response.body);
       } catch (err) {
         if (err instanceof AppError) throw err;
-        if (isAbortError(err) || req.signal.aborted) {
+        // Caller abort -> cancelled. An AbortError NOT from the caller's signal (or any other
+        // stream failure) -> retryable provider_unavailable, never cancelled.
+        if (req.signal.aborted) {
           throw new AppError("cancelled", "The operation was cancelled", { cause: err });
         }
         throw new AppError("provider_unavailable", "The model provider connection failed.", { retryable: true, cause: err });

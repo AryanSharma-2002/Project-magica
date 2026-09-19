@@ -1,9 +1,9 @@
-import type { ContentBlock, RunUsage, SafeError, TextBlock, ThinkingBlock } from "@agent-chat/contracts";
+import type { AssetBlock, ContentBlock, RunUsage, SafeError, TextBlock, ThinkingBlock } from "@agent-chat/contracts";
 import { AppError } from "@/lib/errors";
 import type { LlmMessage, LlmProvider, LlmRequest, LlmToolCall } from "@/agent/llm/types";
 import type { ProviderToolSpec } from "@/agent/tools/registry";
 import { buildSystemPrompt } from "@/agent/prompt/system";
-import { historyToLlmMessages } from "@/agent/prompt/history";
+import { assistantBlocksToLlmMessages, historyToLlmMessages } from "@/agent/prompt/history";
 import { seedSkillCache } from "./skills";
 import { processToolBatch } from "./tools";
 import { accumulateUsage, buildUsageBlock, emptyUsage } from "./usage";
@@ -133,6 +133,20 @@ async function runLlmTurnWithRetry(args: {
 // Main loop
 // ---------------------------------------------------------------------------
 
+/** RunMetadata.assets/reasoning are the live view's source for asset/reasoning blocks (realtime.ts:
+ * "the live view builds ... tool/asset/reasoning blocks from metadata"), each bounded and carrying
+ * the block's index. Recomputed from `blocks` (cheap at these sizes) rather than tracked
+ * incrementally, so it can never drift from what was actually appended. */
+function publishAssetsAndReasoning(realtime: RunDeps["realtime"], blocks: ContentBlock[]): void {
+  const assets: Array<AssetBlock & { index: number }> = [];
+  const reasoning: Array<{ index: number; text: string }> = [];
+  blocks.forEach((block, index) => {
+    if (block.type === "asset") assets.push({ ...block, index });
+    else if (block.type === "reasoning") reasoning.push({ index, text: block.text });
+  });
+  realtime.metadata({ assets: assets.slice(-20), reasoning: reasoning.slice(-50) });
+}
+
 type LoopResult = {
   status: "completed" | "failed" | "cancelled";
   blocks: ContentBlock[];
@@ -163,6 +177,7 @@ async function runLoop(runId: string, deps: RunDeps, helpers: { sleep: Sleep; ra
     const readyAttachmentsForPrompt = snapshot.attachments.filter((a) => a.status === "ready").map((a) => ({ kind: a.kind, url: a.url ?? "" }));
     const { cache: skillCache, loadedSkillsForPrompt, hashMismatchReasoning } = await seedSkillCache(deps.skills, snapshot.loadedSkills);
     for (const reasoning of hashMismatchReasoning) blocks.push(reasoning);
+    if (hashMismatchReasoning.length > 0) publishAssetsAndReasoning(deps.realtime, blocks);
 
     const malformedStreak = new Map<string, number>();
     let firstBatchDone = false;
@@ -180,7 +195,15 @@ async function runLoop(runId: string, deps: RunDeps, helpers: { sleep: Sleep; ra
         planMode: snapshot.run.planMode,
         loadedSkills: loadedSkillsForPrompt,
       });
-      const messages: LlmMessage[] = [{ role: "system", content: systemPrompt }, ...historyToLlmMessages(snapshot.history, snapshot.attachments)];
+      // historyToLlmMessages replays PAST, persisted assistant Messages; snapshot.history excludes
+      // the in-progress assistant message (ports.ts), so this run's OWN blocks so far (text,
+      // tool_use, tool_result from earlier turns in THIS run) are appended separately here, whole
+      // (never subject to the history char/message bound - it is the live turn, not scrollback).
+      const messages: LlmMessage[] = [
+        { role: "system", content: systemPrompt },
+        ...historyToLlmMessages(snapshot.history, snapshot.attachments),
+        ...assistantBlocksToLlmMessages(blocks),
+      ];
       const providerTools = await deps.tools.toProviderTools();
 
       const attempt = await runLlmTurnWithRetry({ deps, helpers, blocks, messages, providerTools, run: snapshot.run, now });
@@ -218,6 +241,7 @@ async function runLoop(runId: string, deps: RunDeps, helpers: { sleep: Sleep; ra
       await deps.store.checkpoint(runId, blocks);
       await deps.store.heartbeat(runId);
       deps.realtime.metadata({ persistedUpTo: blocks.length - 1 });
+      publishAssetsAndReasoning(deps.realtime, blocks);
 
       if (batchOutcome.kind === "stop") {
         return {
@@ -265,17 +289,9 @@ export function createAgentLoop(overrides: { sleep?: Sleep; random?: RandomFn } 
 
     const finalBlocks: ContentBlock[] = [...result.blocks, buildUsageBlock(result.usage, result.requestedModel)];
 
-    deps.realtime.metadata({
-      status: result.status,
-      step: null,
-      waitpoint: null,
-      progress: null,
-      routedModel: result.routedModel,
-      persistedUpTo: finalBlocks.length - 1,
-      error: result.error ?? null,
-      updatedAt: now().toISOString(),
-    });
-
+    // store.finalize is the durable source of truth and MUST be called exactly once regardless of
+    // what happens next; realtime is transport-only, so a metadata/flush failure here is logged
+    // and swallowed rather than risking a skipped or duplicated finalize.
     await deps.store.finalize(runId, {
       status: result.status,
       blocks: finalBlocks,
@@ -283,7 +299,22 @@ export function createAgentLoop(overrides: { sleep?: Sleep; random?: RandomFn } 
       routedModel: result.routedModel,
       ...(result.error ? { error: result.error } : {}),
     });
-    await deps.realtime.flush();
+
+    try {
+      deps.realtime.metadata({
+        status: result.status,
+        step: null,
+        waitpoint: null,
+        progress: null,
+        routedModel: result.routedModel,
+        persistedUpTo: finalBlocks.length - 1,
+        error: result.error ?? null,
+        updatedAt: now().toISOString(),
+      });
+      await deps.realtime.flush();
+    } catch (err) {
+      deps.log.error({ err, runId }, "failed to publish final realtime metadata (run already finalized in the store)");
+    }
 
     return { status: result.status, ...(result.error ? { error: result.error } : {}) };
   };
