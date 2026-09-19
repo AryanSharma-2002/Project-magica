@@ -6,3 +6,5 @@
 4. Every route = `route(spec, handler)` from `src/lib/http.ts`. Every JSONB write goes through a contract schema. Every error is an `AppError`.
 5. Money is integer microcredits; DB `BigInt`, contracts `number` (use `mc()` from `src/lib/db.ts`).
 6. Definition of done: `pnpm typecheck && pnpm lint && pnpm test` green, tests for your slice present, no edits outside your ownership.
+7. The Prisma schema is frozen for this wave. Do not run `pnpm db:migrate` (`prisma migrate dev` is interactive and hangs). If you need a column, report it in your final summary. Apply existing migrations with `pnpm db:deploy`.
+8. Tests: `pnpm test`. DB tests read `TEST_DATABASE_URL` (see test/setup.ts). Keep unit tests pure (in-memory fakes against the ports); put DB tests under `test/db/`.

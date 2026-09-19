@@ -94,8 +94,16 @@ export function route<P extends z.ZodType = z.ZodType<Params>, Q extends z.ZodTy
       }
       const idempotencyKey = req.headers.get("idempotency-key");
       const result = await handler({ req, params, query, body, principal, traceId, log, idempotencyKey });
-      const validated = spec.response.parse(result);
-      return NextResponse.json(validated, { status: spec.status ?? 200, headers: { ...corsHeaders(), "x-trace-id": traceId } });
+      if (spec.status === 204) return noContent(traceId);
+      const validated = spec.response.safeParse(result);
+      if (!validated.success) {
+        // A response that violates its own contract is a server bug, never a client error.
+        throw new AppError("internal", "Response failed contract validation", {
+          cause: validated.error,
+          details: { issues: validated.error.issues.slice(0, 5).map((i) => ({ path: i.path.join("."), message: i.message })) },
+        });
+      }
+      return NextResponse.json(validated.data, { status: spec.status ?? 200, headers: { ...corsHeaders(), "x-trace-id": traceId } });
     } catch (err) {
       return errorResponse(err, traceId, log);
     }

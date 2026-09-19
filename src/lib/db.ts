@@ -2,16 +2,28 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { Prisma, PrismaClient } from "@/generated/prisma/client";
 import { getEnv } from "./env";
 
-const globalForPrisma = globalThis as unknown as { __prisma?: PrismaClient };
+const globalForPrisma = globalThis as unknown as { __prisma?: PrismaClient | undefined };
 
 function create(): PrismaClient {
   const adapter = new PrismaPg({ connectionString: getEnv().DATABASE_URL });
   return new PrismaClient({ adapter, log: getEnv().NODE_ENV === "development" ? ["warn", "error"] : ["error"] });
 }
 
-/** Singleton per process (Next.js dev reloads, Trigger.dev workers). */
-export const prisma: PrismaClient = globalForPrisma.__prisma ?? create();
-if (getEnv().NODE_ENV !== "production") globalForPrisma.__prisma = prisma;
+/**
+ * Lazy singleton per process (Next.js dev reloads, Trigger.dev workers).
+ * Lazy so `next build` can import route modules without DATABASE_URL.
+ */
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    if (!globalForPrisma.__prisma) globalForPrisma.__prisma = create();
+    return Reflect.get(globalForPrisma.__prisma, prop, receiver);
+  },
+});
+
+/** Test-only: swap the underlying client (e.g. per-worker database). */
+export function __setPrismaForTests(client: PrismaClient | undefined): void {
+  globalForPrisma.__prisma = client;
+}
 
 export type Db = PrismaClient | Prisma.TransactionClient;
 export { Prisma };
