@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { DEFAULT_LIMITS, FileMeta, type CreateAssemblyRequest } from "@agent-chat/contracts";
 
-type FileMeta = z.infer<typeof FileMeta>;
 import { prisma } from "@/lib/db";
 import { AppError } from "@/lib/errors";
 import { createAssembly, markUploaded, applyNotification, listAttachments } from "@/services/attachments";

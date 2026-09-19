@@ -137,7 +137,7 @@ Migrations: forward = `prisma migrate deploy`. Rollback notes and compatibility 
 
 ## 6. Realtime & recovery
 
-- Channels: `RunMetadata` via Trigger run metadata (`metadata.set` throttled to ≤ 2/s) and `TextChunk` via `agentTextStream` (`streams.define`, id `agent-text`).
+- Channels: `RunMetadata` via Trigger run metadata under the key **`run`** (`metadata.set("run", state)`, throttled to ≤ 2/s; the frontend reads `run.metadata.run`), and `TextChunk` via `agentTextStream` (`streams.define`, id `agent-text`, written through one long-lived `writer()` session per run). Child tasks may additionally publish `tool:<invocationId>` progress on the parent metadata; readers ignore unknown keys.
 - Frontend `useRunRealtime(run)` = `useRealtimeRun(triggerRunId)` + `useRealtimeStream(agentTextStream, triggerRunId)`. Live view builds blocks by `index`: text/thinking from chunks, tool/asset/reasoning from metadata. Ordering is by `index`, always.
 - **Reconciliation rule:** while a run is active, the assistant message renders from the live view (stream replayed from index 0 on reload) and the persisted `content` of that message is ignored. On terminal status → invalidate messages/chat/balance queries → render persisted content only. No duplicate terminal bubbles.
 - **Reload / navigation:** `GET /chats/:id` returns `activeRunId`; `GET /runs/:id` returns the run + `realtime` token → resubscribe. Persisted partial content (checkpointed every loop step) is shown until the stream connects.
