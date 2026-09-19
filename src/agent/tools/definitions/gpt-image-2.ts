@@ -16,6 +16,37 @@ export function subModelIdFor(input: GptImage2Input): GptImage2SubModelId {
   return input.image_urls && input.image_urls.length > 0 ? "gpt-image-2-edit" : "gpt-image-2-text";
 }
 
+type IssueSink = { addIssue: (issue: { code: "custom"; message: string }) => void };
+
+/**
+ * Mirrors GptImage2Input's own `.superRefine` in packages/contracts/src/tools.ts (aspect ratio
+ * <= 3:1, 655,360-8,294,400 total pixels for a Custom size). That file is read-only for this
+ * slice, so this is a parallel implementation rather than a shared import - see the final report
+ * for a proposed contracts export so this stops needing to be kept in sync by hand. Applied to
+ * the catalog-built live schema too (buildLiveInputSchema), since the catalog only carries these
+ * bounds as free-text `helpText`, not as machine-checkable constraints.
+ *
+ * The "missing width/height" branch is unreachable given the current live catalog in practice:
+ * its `size` customFields declare `default: 1024` for both, and catalogFieldsToZod applies
+ * catalog defaults for non-required fields - so an omitted width/height resolves to 1024x1024 (a
+ * valid 1:1 ratio) before this refine ever runs. It's kept as a guard against a future catalog
+ * change that drops that default (this function is only used by the live-schema path; the static
+ * GptImage2Input fallback has its own superRefine with no such default, so it never defaults
+ * width/height at all).
+ */
+function customSizeChecks(v: { size?: string; width?: number; height?: number }, ctx: IssueSink): void {
+  if (v.size !== "Custom") return;
+  if (v.width === undefined || v.height === undefined) {
+    ctx.addIssue({ code: "custom", message: "Custom size requires width and height" });
+    return;
+  }
+  const long = Math.max(v.width, v.height);
+  const short = Math.min(v.width, v.height);
+  const pixels = v.width * v.height;
+  if (long / short > 3) ctx.addIssue({ code: "custom", message: "Aspect ratio must be <= 3:1" });
+  if (pixels < 655_360 || pixels > 8_294_400) ctx.addIssue({ code: "custom", message: "Total pixels must be within 655,360-8,294,400" });
+}
+
 /**
  * Builds the live input schema from the catalog's `gpt-image-2` sub-models, so option lists
  * (size/quality/background/output_format enums, width/height bounds) stay current without a
@@ -61,7 +92,7 @@ async function buildLiveInputSchema(): Promise<z.ZodType<GptImage2Input>> {
     required: allRequired && count === subModels.length,
   }));
 
-  const schema = catalogFieldsToZod(merged, { mode: "input" });
+  const schema = catalogFieldsToZod(merged, { mode: "input" }).superRefine((v, ctx) => customSizeChecks(v as { size?: string; width?: number; height?: number }, ctx));
   return schema as unknown as z.ZodType<GptImage2Input>;
 }
 

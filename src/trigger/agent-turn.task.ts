@@ -58,11 +58,15 @@ export const agentTurnTask = task({
   onCancel: async ({ payload, runPromise }) => {
     // Give the loop's own cancellation-finalization path (driven by the same AbortSignal /
     // store.isCancelRequested polling) a brief window to land on its own before forcing one.
+    // A clean RESOLVE means the loop's own finalize() ran; a REJECT means it very likely didn't
+    // (e.g. it threw before reaching its own finally-style cleanup), so it must not be treated
+    // the same as "settled" - store.finalize is idempotent, so finalizing again here is safe
+    // either way, but skipping it on a reject would risk leaving the run stuck active.
     const outcome = await Promise.race([
-      runPromise.then(() => "settled" as const).catch(() => "settled" as const),
+      runPromise.then(() => "resolved" as const).catch(() => "rejected" as const),
       sleep(2_000).then(() => "timeout" as const),
     ]);
-    if (outcome === "settled") return;
+    if (outcome === "resolved") return;
     await finalizeBestEffort(payload.runId, "cancelled");
   },
 });

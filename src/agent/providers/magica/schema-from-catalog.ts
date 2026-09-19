@@ -20,7 +20,8 @@ export type CatalogField = {
   min?: number;
   max?: number;
   step?: number;
-  customValue?: boolean;
+  /** Verified live: this is the option VALUE that unlocks customFields (e.g. "Custom"), not a boolean flag. */
+  customValue?: string | boolean;
   customFields?: CatalogField[];
   maxImages?: number;
   maxItems?: number;
@@ -55,11 +56,12 @@ function baseFieldSchema(field: CatalogField): z.ZodTypeAny {
     case "composite-select": {
       // Preset options (e.g. "1024x1024" | ... | "Custom"); customFields are flattened by the
       // caller (catalogFieldsToZod) as sibling top-level fields, mirroring GptImage2Input's
-      // flat size + width/height shape.
+      // flat size + width/height shape. `customValue` names WHICH option value unlocks the
+      // custom fields (e.g. "Custom") - that value is already one of `options`, so the enum does
+      // not need widening to an arbitrary string (verified live: doing so would let a bogus
+      // `size` value like "banana" pass validation and reach the provider as a 400).
       const values = (field.options ?? []).map((o) => String(optionValue(o)));
-      if (values.length === 0) return field.customValue ? z.string() : z.unknown();
-      const enumSchema = z.enum(values as [string, ...string[]]);
-      return field.customValue ? z.union([enumSchema, z.string()]) : enumSchema;
+      return values.length === 0 ? z.unknown() : z.enum(values as [string, ...string[]]);
     }
 
     case "slider":

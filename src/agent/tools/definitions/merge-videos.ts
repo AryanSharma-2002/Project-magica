@@ -49,6 +49,11 @@ export const mergeVideosTool = defineTool({
           idOrNodeType: NODE_TYPE,
           staticDefault: staticFallback(input.video_urls.length),
           log: ctx.log,
+          // The catalog's defaultEstimateMicrocredits for merge_videos is a flat number for the
+          // minimum 2-video case (50,000) - using it as-is for a 100-video merge would massively
+          // under-estimate and could let a large job slip under the approval threshold. This
+          // tool's own cost arithmetic scales with item count, so it is tried FIRST.
+          preferCostArithmetic: true,
           // Catalog cost is { type: "per_minute", baseValue, extraPerVideo } in CREDITS (verified
           // live: baseValue 0.04 -> 40,000 µc, extraPerVideo 0.01 -> 10,000 µc).
           pick: (cost) => {

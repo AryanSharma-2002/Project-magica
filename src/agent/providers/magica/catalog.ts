@@ -32,7 +32,8 @@ export type MagicaCatalogModel = {
 };
 
 export type MagicaCatalog = {
-  version: string;
+  /** Verified live: this is a number (e.g. 1), not a semver-ish string. */
+  version: number;
   generatedAt: string;
   models: Record<string, MagicaCatalogModel>;
 };

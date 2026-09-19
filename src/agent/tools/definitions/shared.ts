@@ -103,15 +103,19 @@ export async function estimateWithFallback(args: EstimateArgs): Promise<number> 
 
 /**
  * Catalog-informed fallback estimate, tried when the live Magica estimate-credits call fails.
- * Two tiers:
- *   1) `defaultEstimateMicrocredits` on the (sub)model - a precomputed, authoritative number
- *      already in microcredits. Verified against the live public catalog: gpt-image-2's
- *      sub-models report exactly 273,936, matching this repo's static default for that tool.
- *   2) `pick(cost)` - a best-effort interpretation of the loosely-specified `cost` field, for
- *      when a future catalog entry lacks `defaultEstimateMicrocredits`. `cost.value` and similar
- *      numeric fields are denominated in CREDITS, not microcredits (verified: crop_image's
- *      `cost.value` is 0.005, i.e. 5,000 microcredits, matching its static default) - `pick` is
- *      expected to return microcredits, so callers must multiply by 1_000_000 themselves.
+ * Two sources, order controlled by `preferCostArithmetic`:
+ *   - `defaultEstimateMicrocredits` on the (sub)model - a precomputed, authoritative number
+ *     already in microcredits. Verified against the live public catalog: gpt-image-2's
+ *     sub-models report exactly 273,936, matching this repo's static default for that tool.
+ *     BUT it is a single flat number (the minimum/default case) - for a tool whose real cost
+ *     scales with the input (merge_videos: per-minute + per-extra-video), using it directly
+ *     regardless of input size would under-estimate a large job and could let it slip under the
+ *     approval threshold. Callers whose `pick(cost)` arithmetic is input-aware should pass
+ *     `preferCostArithmetic: true` to try that FIRST.
+ *   - `pick(cost)` - a best-effort interpretation of the loosely-specified `cost` field. `cost.
+ *     value` and similar numeric fields are denominated in CREDITS, not microcredits (verified:
+ *     crop_image's `cost.value` is 0.005, i.e. 5,000 microcredits) - `pick` is expected to return
+ *     microcredits, so callers must multiply by 1_000_000 themselves.
  * Falls back to `staticDefault` if both are unavailable.
  */
 export async function catalogCostFallback(args: {
@@ -121,17 +125,20 @@ export async function catalogCostFallback(args: {
   staticDefault: number;
   log: Logger;
   pick?: (cost: unknown) => number | undefined;
+  /** True for tools whose cost scales with input (e.g. merge_videos' item count) - see doc comment above. */
+  preferCostArithmetic?: boolean;
 }): Promise<number> {
   try {
     const catalog = await getCatalog();
     const model = findCatalogModel(catalog, args.idOrNodeType);
     const subModel = args.subModelId ? model?.subModels?.find((s) => s.subModelId === args.subModelId) : model?.subModels?.[0];
     const fromDefaultEstimate = subModel?.defaultEstimateMicrocredits ?? model?.defaultEstimateMicrocredits;
-    if (typeof fromDefaultEstimate === "number" && Number.isFinite(fromDefaultEstimate) && fromDefaultEstimate >= 0) {
-      return fromDefaultEstimate;
-    }
     const picked = args.pick && model?.cost !== undefined ? args.pick(model.cost) : undefined;
-    if (typeof picked === "number" && Number.isFinite(picked) && picked >= 0) return picked;
+
+    const candidates = args.preferCostArithmetic ? [picked, fromDefaultEstimate] : [fromDefaultEstimate, picked];
+    for (const candidate of candidates) {
+      if (typeof candidate === "number" && Number.isFinite(candidate) && candidate >= 0) return candidate;
+    }
   } catch (err) {
     args.log.warn({ err, idOrNodeType: args.idOrNodeType }, "Magica catalog cost lookup failed; using the static fallback estimate");
   }

@@ -121,6 +121,28 @@ describe("gpt_image_2 resolveInputSchema built from the real catalog", () => {
     expect(schema?.safeParse({ size: "Auto" }).success).toBe(false);
   });
 
+  it("rejects a size value that isn't one of the catalog's own options (composite-select must not widen to an arbitrary string)", async () => {
+    __setMagicaCatalogForTests(liveCatalog);
+    const schema = await gptImage2Tool.resolveInputSchema?.();
+    expect(schema?.safeParse({ prompt: "a cat", size: "banana" }).success).toBe(false);
+    expect(schema?.safeParse({ prompt: "a cat", size: "Custom", width: 1024, height: 1024 }).success).toBe(true);
+  });
+
+  it("enforces the Custom-size aspect-ratio bound on the live schema too (mirrors the contract's own superRefine)", async () => {
+    __setMagicaCatalogForTests(liveCatalog);
+    const schema = await gptImage2Tool.resolveInputSchema?.();
+    // 3840x1024 is within each field's own 1024-3840 bound but is a 3.75:1 ratio, over the 3:1 cap.
+    expect(schema?.safeParse({ prompt: "a cat", size: "Custom", width: 3840, height: 1024 }).success).toBe(false);
+    // A valid ratio within bounds passes.
+    expect(schema?.safeParse({ prompt: "a cat", size: "Custom", width: 2048, height: 1024 }).success).toBe(true);
+    // Unlike the static contract (whose width/height have no default), the catalog's own
+    // customFields declare `default: 1024` - omitting them for a Custom size intentionally falls
+    // back to that catalog-declared default (1024x1024, a valid 1:1 ratio) rather than erroring.
+    const omitted = schema?.safeParse({ prompt: "a cat", size: "Custom" });
+    expect(omitted?.success).toBe(true);
+    if (omitted?.success) expect(omitted.data).toMatchObject({ width: 1024, height: 1024 });
+  });
+
   it("falls back to the baseline contract schema when the catalog is unavailable", async () => {
     __resetMagicaCatalogCacheForTests();
     const originalFetch = globalThis.fetch;
