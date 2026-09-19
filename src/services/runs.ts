@@ -6,6 +6,7 @@ import {
   type RunUsage,
   type WaitpointResolution,
   type Waitpoint,
+  ACTIVE_RUN_STATUSES,
 } from "@agent-chat/contracts";
 import { prisma, Prisma } from "@/lib/db";
 import { errors } from "@/lib/errors";
@@ -24,11 +25,20 @@ async function loadRunRelations(runId: string) {
   return { toolInvocations, waitpoint: waitpointRow, loadedSkills: skills };
 }
 
-export async function getRun(userId: string, runId: string): Promise<AgentRun> {
+export async function getRun(userId: string, runId: string): Promise<AgentRun & { realtime: RealtimeAccess | null }> {
   const run = await prisma.agentRun.findFirst({ where: { id: runId, userId } });
   if (!run) throw errors.notFound("AgentRun");
   const relations = await loadRunRelations(runId);
-  return serializeAgentRun(run, relations);
+  const serialized = serializeAgentRun(run, relations);
+  const active = (ACTIVE_RUN_STATUSES as readonly string[]).includes(serialized.status);
+  const realtime = active && run.triggerRunId ? await mintRealtimeAccess(run.triggerRunId).catch(() => null) : null;
+  return { ...serialized, realtime };
+}
+
+async function mintRealtimeAccess(triggerRunId: string): Promise<RealtimeAccess> {
+  const expirationTime = "1h";
+  const publicAccessToken = await auth.createPublicToken({ scopes: { read: { runs: [triggerRunId] } }, expirationTime });
+  return { triggerRunId, publicAccessToken, expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), streamId: AGENT_TEXT_STREAM_ID };
 }
 
 /**

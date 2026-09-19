@@ -51,7 +51,9 @@ export const SendMessageResponse = z.object({
 export type SendMessageResponse = z.infer<typeof SendMessageResponse>;
 
 // ---- runs ----
-export const GetRunResponse = AgentRun;
+/** Run state plus realtime access (null when the run is terminal or not yet dispatched) — one call for reload recovery. */
+export const GetRunResponse = AgentRun.extend({ realtime: RealtimeAccess.nullable() });
+export type GetRunResponse = z.infer<typeof GetRunResponse>;
 export const CancelRunResponse = AgentRun;
 export const RealtimeTokenResponse = RealtimeAccess;
 

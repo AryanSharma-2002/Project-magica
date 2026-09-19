@@ -45,6 +45,7 @@ export const LiveWaitpoint = z.object({
   status: WaitpointStatus,
   expiresAt: IsoDate,
 });
+export type LiveWaitpoint = z.infer<typeof LiveWaitpoint>;
 
 export const RunMetadata = z.object({
   v: z.literal(RUN_METADATA_VERSION),
