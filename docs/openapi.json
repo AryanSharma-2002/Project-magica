@@ -2182,7 +2182,7 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "boolean"
+              "type": "string"
             }
           },
           {

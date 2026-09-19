@@ -77,8 +77,8 @@ for (const op of ops) {
     "409": errorResponse,
     "429": errorResponse,
   };
-  paths[op.path] ??= {};
-  paths[op.path][op.method] = {
+  const pathItem = (paths[op.path] ??= {});
+  pathItem[op.method] = {
     summary: op.summary,
     description: op.description,
     tags: [op.tag],
