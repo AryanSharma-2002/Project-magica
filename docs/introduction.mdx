@@ -18,7 +18,9 @@ The Agent Chat API lets you start and follow **long-running, tool-using agent co
 https://<your-deployment>/api/v1
 ```
 
-## Quick start
+## Quick start (public API — planned)
+
+<Note>The API-key `/completions` endpoint below is Phase 2. In this build, use the Clerk-authenticated `POST /chats/{chatId}/messages`.</Note>
 
 ```bash
 curl -X POST "$BASE/api/v1/completions" \

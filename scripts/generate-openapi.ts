@@ -41,11 +41,7 @@ const ops: Op[] = [
   { method: "get", path: "/credits/balance", summary: "Credit balance", tag: "Credits", auth: "clerk", response: c.BalanceResponse },
   { method: "get", path: "/credits/ledger", summary: "Credit ledger", tag: "Credits", auth: "clerk", query: c.CursorQuery, response: c.ListLedgerResponse },
   { method: "get", path: "/search", summary: "Search chats and messages", tag: "Search", auth: "clerk", query: c.SearchQuery, response: c.SearchResponse },
-  { method: "post", path: "/completions", summary: "Chat-style completion (public API)", description: "Creates or continues a conversation and starts a durable run. Poll `GET /runs/{runId}` or subscribe to webhooks for completion.", tag: "Public API", auth: "apiKey", body: c.PublicCompletionRequest, response: c.PublicCompletionResponse, status: 202, idempotent: true },
-  { method: "post", path: "/tools/{name}/run", summary: "Run a Magica tool (public API)", description: "Standalone typed tool execution (crop_image, gpt_image_2, merge_videos).", tag: "Public API", auth: "apiKey", params: ["name"], body: c.PublicToolRunRequest, response: c.PublicToolRunResponse, status: 202, idempotent: true },
-  { method: "get", path: "/webhooks", summary: "List webhook endpoints", tag: "Webhooks", auth: "any", response: z.array(c.WebhookEndpoint) },
-  { method: "post", path: "/webhooks", summary: "Create webhook endpoint", description: "The signing secret is returned once.", tag: "Webhooks", auth: "any", body: c.CreateWebhookRequest, response: c.WebhookEndpoint, status: 201 },
-  { method: "delete", path: "/webhooks/{webhookId}", summary: "Delete webhook endpoint", tag: "Webhooks", auth: "any", params: ["webhookId"], status: 204 },
+  // Phase 2 (not in this build): POST /completions, POST /tools/{name}/run, /webhooks CRUD — see docs/webhooks.mdx.
 ];
 
 function schema(s: z.ZodType, io: "input" | "output") {
