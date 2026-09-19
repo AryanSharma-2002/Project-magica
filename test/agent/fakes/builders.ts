@@ -1,4 +1,5 @@
 import type { Attachment, ContentBlock, Message } from "@agent-chat/contracts";
+import type { RunRecord } from "@/agent/loop/ports";
 
 let counter = 0;
 function nextId(prefix: string): string {
@@ -50,4 +51,20 @@ export function userMessage(text: string, overrides: Partial<Message> = {}): Mes
 
 export function assistantMessage(content: ContentBlock[], overrides: Partial<Message> = {}): Message {
   return makeMessage({ role: "assistant", content, ...overrides });
+}
+
+export function makeRunRecord(overrides: Partial<RunRecord> = {}): RunRecord {
+  return {
+    id: nextId("run"),
+    chatId: "chat_1",
+    userId: "user_1",
+    userMessageId: nextId("msg"),
+    assistantMessageId: nextId("msg"),
+    status: "running",
+    planMode: false,
+    requestedModel: "openrouter/free",
+    microcreditsReserved: 0,
+    cancelRequestedAt: null,
+    ...overrides,
+  };
 }
