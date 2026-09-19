@@ -102,20 +102,35 @@ export async function estimateWithFallback(args: EstimateArgs): Promise<number> 
 }
 
 /**
- * Best-effort read of the catalog's `cost` field for a model. The Magica docs do not pin down
- * this shape, so this tries a handful of plausible keys and otherwise defers to `staticDefault`.
- * Documented as an assumption in the final report.
+ * Catalog-informed fallback estimate, tried when the live Magica estimate-credits call fails.
+ * Two tiers:
+ *   1) `defaultEstimateMicrocredits` on the (sub)model - a precomputed, authoritative number
+ *      already in microcredits. Verified against the live public catalog: gpt-image-2's
+ *      sub-models report exactly 273,936, matching this repo's static default for that tool.
+ *   2) `pick(cost)` - a best-effort interpretation of the loosely-specified `cost` field, for
+ *      when a future catalog entry lacks `defaultEstimateMicrocredits`. `cost.value` and similar
+ *      numeric fields are denominated in CREDITS, not microcredits (verified: crop_image's
+ *      `cost.value` is 0.005, i.e. 5,000 microcredits, matching its static default) - `pick` is
+ *      expected to return microcredits, so callers must multiply by 1_000_000 themselves.
+ * Falls back to `staticDefault` if both are unavailable.
  */
 export async function catalogCostFallback(args: {
   idOrNodeType: string;
+  /** Selects which sub-model's defaultEstimateMicrocredits to prefer; omit for single-sub-model tools. */
+  subModelId?: string;
   staticDefault: number;
   log: Logger;
-  pick: (cost: unknown) => number | undefined;
+  pick?: (cost: unknown) => number | undefined;
 }): Promise<number> {
   try {
     const catalog = await getCatalog();
     const model = findCatalogModel(catalog, args.idOrNodeType);
-    const picked = model?.cost !== undefined ? args.pick(model.cost) : undefined;
+    const subModel = args.subModelId ? model?.subModels?.find((s) => s.subModelId === args.subModelId) : model?.subModels?.[0];
+    const fromDefaultEstimate = subModel?.defaultEstimateMicrocredits ?? model?.defaultEstimateMicrocredits;
+    if (typeof fromDefaultEstimate === "number" && Number.isFinite(fromDefaultEstimate) && fromDefaultEstimate >= 0) {
+      return fromDefaultEstimate;
+    }
+    const picked = args.pick && model?.cost !== undefined ? args.pick(model.cost) : undefined;
     if (typeof picked === "number" && Number.isFinite(picked) && picked >= 0) return picked;
   } catch (err) {
     args.log.warn({ err, idOrNodeType: args.idOrNodeType }, "Magica catalog cost lookup failed; using the static fallback estimate");

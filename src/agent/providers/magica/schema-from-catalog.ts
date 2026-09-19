@@ -89,15 +89,18 @@ function baseFieldSchema(field: CatalogField): z.ZodTypeAny {
   }
 }
 
-/** Applies required/default/optional per `mode`. See README note in this file's header comment. */
+/**
+ * Applies required/default/optional per `mode`. `required: true` always wins over a UI `default`
+ * (verified live: crop_image's `image_url` and gpt-image-2's `prompt` both carry `required: true`
+ * together with a `default: ""` - that default is a form-UI initial value, not a signal that the
+ * field may be omitted at execution time).
+ */
 function applyModifiers(schema: z.ZodTypeAny, field: CatalogField, mode: "input" | "output"): z.ZodTypeAny {
+  if (field.required) return schema;
   if (mode === "input" && field.default !== undefined) {
     return schema.default(field.default as never);
   }
-  if (!field.required) {
-    return schema.optional();
-  }
-  return schema;
+  return schema.optional();
 }
 
 export type CatalogSchemaMode = { mode: "input" | "output" };

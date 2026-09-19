@@ -8,7 +8,7 @@ const NODE_TYPE = "crop_image";
 const STATIC_MICROCREDITS = 5_000;
 
 /** Maps the contract's three crop modes (percent / pixel / crop{}) to Magica's flat field set. */
-function toProviderInput(input: CropImageInput): Record<string, unknown> {
+export function toProviderInput(input: CropImageInput): Record<string, unknown> {
   if (input.crop) {
     return {
       image_url: input.image_url,
@@ -33,7 +33,7 @@ function toProviderInput(input: CropImageInput): Record<string, unknown> {
   return px;
 }
 
-function normalizeOutput(raw: unknown): CropImageOutput {
+export function normalizeOutput(raw: unknown): CropImageOutput {
   const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
   const url = normalizeToSingleUrl(obj.image_url);
   if (!url) {
@@ -64,7 +64,11 @@ export const cropImageTool = defineTool({
           idOrNodeType: NODE_TYPE,
           staticDefault: STATIC_MICROCREDITS,
           log: ctx.log,
-          pick: (cost) => pickNumberField(cost, "microcredits", "perItem", "per_item"),
+          // Catalog `cost.value` is denominated in credits (verified live: 0.005 -> 5,000 µc).
+          pick: (cost) => {
+            const credits = pickNumberField(cost, "value");
+            return credits !== undefined ? Math.round(credits * 1_000_000) : undefined;
+          },
         }),
     }),
 

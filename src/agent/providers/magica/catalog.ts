@@ -5,17 +5,30 @@ import type { CatalogField } from "./schema-from-catalog";
 
 /** GET /v1/models/catalog - public, no auth. */
 
-export type MagicaCatalogSubModel = { subModelId: string; label: string; inputFieldOptions: CatalogField[] };
+export type MagicaCatalogSubModel = {
+  subModelId: string;
+  label: string;
+  inputFieldOptions: CatalogField[];
+  /**
+   * Precomputed default credit estimate for this sub-model, in microcredits. Verified against
+   * the live public catalog (test/magica/fixtures/catalog.json, fetched September 2026): this is
+   * an exact, authoritative number (e.g. gpt-image-2-text/edit's is 273,936 - matching this
+   * repo's static fallback constant) and is a far more reliable estimate source than trying to
+   * interpret the loosely-specified `cost` field below.
+   */
+  defaultEstimateMicrocredits?: number;
+};
 
 export type MagicaCatalogModel = {
   nodeType: string;
   defaultSubModelId?: string;
   name: string;
-  /** Shape is provider-defined and not fully specified; see estimateFromCatalogCost for the best-effort arithmetic we apply. */
+  /** Shape is provider-defined and only loosely specified; see catalogCostFallback in tools/definitions/shared.ts for the best-effort arithmetic applied when defaultEstimateMicrocredits is unavailable. */
   cost?: unknown;
   inputFieldOptions?: CatalogField[];
   subModels?: MagicaCatalogSubModel[];
   outputFieldOptions?: CatalogField[];
+  defaultEstimateMicrocredits?: number;
 };
 
 export type MagicaCatalog = {

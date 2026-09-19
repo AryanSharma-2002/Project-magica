@@ -4,7 +4,7 @@ import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { defineTool } from "../types";
 import { catalogFieldsToZod, findCatalogModel, getCatalog, runMagicaJob, type CatalogField } from "@/agent/providers/magica";
-import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToUrlList, pickNumberField } from "./shared";
+import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToUrlList } from "./shared";
 
 const NODE_TYPE = "gpt_image_2";
 const CATALOG_MODEL_ID = "gpt-image-2";
@@ -12,7 +12,7 @@ const STATIC_MICROCREDITS = 273_936;
 
 type GptImage2SubModelId = "gpt-image-2-text" | "gpt-image-2-edit";
 
-function subModelIdFor(input: GptImage2Input): GptImage2SubModelId {
+export function subModelIdFor(input: GptImage2Input): GptImage2SubModelId {
   return input.image_urls && input.image_urls.length > 0 ? "gpt-image-2-edit" : "gpt-image-2-text";
 }
 
@@ -37,26 +37,35 @@ async function buildLiveInputSchema(): Promise<z.ZodType<GptImage2Input>> {
   const subModels = model?.subModels ?? [];
   if (subModels.length === 0) throw new Error(`Magica catalog has no sub-models for ${CATALOG_MODEL_ID}`);
 
-  const merged = new Map<string, CatalogField>();
+  // A field is required in the merged schema only if it is present in EVERY sub-model and
+  // required in all of them (e.g. `prompt`). Verified live: `uploadedImages` (renamed to
+  // `image_urls`) is `required: true` but present ONLY on the "gpt-image-2-edit" sub-model - it
+  // must still end up optional here, since the caller doesn't pick a sub-model directly
+  // (subModelIdFor derives it from whether image_urls was supplied).
+  const presence = new Map<string, { field: CatalogField; count: number; allRequired: boolean }>();
   for (const subModel of subModels) {
     for (const field of subModel.inputFieldOptions) {
       const renamed: CatalogField = field.zodExpectedName === "uploadedImages" ? { ...field, zodExpectedName: "image_urls" } : field;
-      const existing = merged.get(renamed.zodExpectedName);
-      // A field only present on one sub-model (or required on only one) must be optional in the
-      // merged schema, since the caller doesn't pick a sub-model directly.
-      merged.set(renamed.zodExpectedName, existing ? { ...renamed, required: false } : renamed);
-      if (existing && existing.required && !field.required) merged.set(renamed.zodExpectedName, { ...existing, required: false });
+      const entry = presence.get(renamed.zodExpectedName);
+      if (!entry) {
+        presence.set(renamed.zodExpectedName, { field: renamed, count: 1, allRequired: Boolean(renamed.required) });
+      } else {
+        entry.count += 1;
+        entry.allRequired = entry.allRequired && Boolean(renamed.required);
+        entry.field = renamed;
+      }
     }
   }
-  // `prompt` is required by both sub-models; keep it required explicitly.
-  const promptField = merged.get("prompt");
-  if (promptField) merged.set("prompt", { ...promptField, required: true });
+  const merged: CatalogField[] = [...presence.values()].map(({ field, count, allRequired }) => ({
+    ...field,
+    required: allRequired && count === subModels.length,
+  }));
 
-  const schema = catalogFieldsToZod([...merged.values()], { mode: "input" });
+  const schema = catalogFieldsToZod(merged, { mode: "input" });
   return schema as unknown as z.ZodType<GptImage2Input>;
 }
 
-function toProviderInput(input: GptImage2Input): Record<string, unknown> {
+export function toProviderInput(input: GptImage2Input): Record<string, unknown> {
   const providerInput: Record<string, unknown> = {
     prompt: input.prompt,
     size: input.size,
@@ -73,7 +82,7 @@ function toProviderInput(input: GptImage2Input): Record<string, unknown> {
   return providerInput;
 }
 
-function normalizeOutput(raw: unknown): GptImage2Output {
+export function normalizeOutput(raw: unknown): GptImage2Output {
   let images: string[] = [];
   if (typeof raw === "string") {
     images = [raw];
@@ -120,14 +129,18 @@ export const gptImage2Tool = defineTool<z.ZodType<GptImage2Input>, typeof GptIma
       fallback: () =>
         catalogCostFallback({
           idOrNodeType: CATALOG_MODEL_ID,
+          subModelId,
           staticDefault: STATIC_MICROCREDITS,
           log: ctx.log,
-          // Best-effort: tiered cost keyed by quality/size, shape not specified by the API docs.
-          pick: (cost) =>
-            pickNumberField(cost, `${input.quality}:${input.size}`) ??
-            (cost && typeof cost === "object" && !Array.isArray(cost)
-              ? pickNumberField((cost as Record<string, unknown>)[input.quality], input.size)
-              : undefined),
+          // In practice defaultEstimateMicrocredits (checked first, inside catalogCostFallback)
+          // always wins for this model - this only runs if that field is ever removed. Verified
+          // live shape: { type: "tiered", tiers: { "High:1024x1024": 0.21072, ... } }, values in
+          // CREDITS.
+          pick: (cost) => {
+            const tiers = (cost as { tiers?: Record<string, number> } | undefined)?.tiers;
+            const credits = tiers?.[`${input.quality}:${input.size}`];
+            return typeof credits === "number" ? Math.round(credits * 1_000_000) : undefined;
+          },
         }),
     });
   },
