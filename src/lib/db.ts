@@ -28,13 +28,22 @@ export function __setPrismaForTests(client: PrismaClient | undefined): void {
 export type Db = PrismaClient | Prisma.TransactionClient;
 export { Prisma };
 
-/** Postgres unique-violation helper (P2002). `target` may be an index name for raw constraints. */
+/**
+ * Postgres unique-violation helper (P2002). `target` may be a column list or a raw index name
+ * (e.g. "AgentRun_one_active_per_chat"). Prisma 7 + driver adapters report the violated index at
+ * meta.driverAdapterError.cause.constraint.index, not meta.target — check all three places.
+ */
 export function isUniqueViolation(err: unknown, target?: string): boolean {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") return false;
   if (!target) return true;
-  const meta = err.meta as { target?: string | string[] } | undefined;
+  const meta = err.meta as
+    | { target?: string | string[]; driverAdapterError?: { cause?: { constraint?: { index?: string; fields?: string[] } } } }
+    | undefined;
   const t = meta?.target;
-  return Array.isArray(t) ? t.includes(target) : typeof t === "string" ? t.includes(target) : false;
+  if (Array.isArray(t) ? t.includes(target) : typeof t === "string" && t.includes(target)) return true;
+  const c = meta?.driverAdapterError?.cause?.constraint;
+  if (c?.index === target || c?.fields?.includes(target)) return true;
+  return err.message.includes(target);
 }
 
 /** Serialize BigInt microcredits for contracts (safe: balances are far below 2^53). */

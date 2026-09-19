@@ -29,3 +29,12 @@ describe("contracts", () => {
     expect(ContentBlock.safeParse({ type: "nope" }).success).toBe(false);
   });
 });
+
+import { ListChatsQuery } from "@agent-chat/contracts";
+describe("ListChatsQuery", () => {
+  it("parses pinned=false as false", () => {
+    expect(ListChatsQuery.parse({ pinned: "false" }).pinned).toBe(false);
+    expect(ListChatsQuery.parse({ pinned: "true" }).pinned).toBe(true);
+    expect(ListChatsQuery.parse({}).pinned).toBeUndefined();
+  });
+});
