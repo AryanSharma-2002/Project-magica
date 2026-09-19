@@ -69,7 +69,7 @@ describe("OpenRouterProvider", () => {
     expect(finish).toMatchObject({ reason: "stop", model: "upstage/solar-pro-3:free" });
   });
 
-  it("accumulates tool_call deltas across chunks by index", async () => {
+  it("accumulates tool_call deltas across chunks by index and emits tool_call_delta events", async () => {
     fetchMock.mockResolvedValue(
       sseResponse([
         `data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"crop_image","arguments":"{\\"a\\":"}}]}}]}\n\n`,
@@ -78,6 +78,11 @@ describe("OpenRouterProvider", () => {
       ]),
     );
     const events = await collect(provider().stream(baseReq()));
+    const deltas = events.filter((e) => e.type === "tool_call_delta");
+    expect(deltas).toEqual([
+      { type: "tool_call_delta", index: 0, id: "call_1", name: "crop_image", argumentsDelta: '{"a":' },
+      { type: "tool_call_delta", index: 0, argumentsDelta: "1}" },
+    ]);
     const finish = events.find((e) => e.type === "finish");
     expect(finish).toMatchObject({
       reason: "tool_calls",

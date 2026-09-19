@@ -236,17 +236,23 @@ async function* parseSseStream(body: ReadableStream<Uint8Array>): AsyncGenerator
           }
 
           if (Array.isArray(delta.tool_calls)) {
-            delta.tool_calls.forEach((raw, i) => {
-              if (!isRecord(raw)) return;
+            for (let i = 0; i < delta.tool_calls.length; i++) {
+              const raw = delta.tool_calls[i];
+              if (!isRecord(raw)) continue;
               const index = typeof raw.index === "number" ? raw.index : i;
               const entry = toolCallsByIndex.get(index) ?? { arguments: "" };
-              if (typeof raw.id === "string") entry.id = raw.id;
               const fn = isRecord(raw.function) ? raw.function : undefined;
+              if (typeof raw.id === "string") entry.id = raw.id;
               if (fn && typeof fn.name === "string") entry.name = fn.name;
               if (fn && typeof fn.arguments === "string") entry.arguments += fn.arguments;
               toolCallsByIndex.set(index, entry);
               sawToolCalls = true;
-            });
+
+              const idPart = typeof raw.id === "string" ? { id: raw.id } : {};
+              const namePart = fn && typeof fn.name === "string" ? { name: fn.name } : {};
+              const argsPart = fn && typeof fn.arguments === "string" ? { argumentsDelta: fn.arguments } : {};
+              yield { type: "tool_call_delta", index, ...idPart, ...namePart, ...argsPart };
+            }
           }
 
           if (choice.finish_reason !== undefined && choice.finish_reason !== null) {
