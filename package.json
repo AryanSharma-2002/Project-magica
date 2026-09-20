@@ -18,8 +18,8 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:studio": "prisma studio",
-    "trigger:dev": "trigger.dev dev",
-    "trigger:deploy": "trigger.dev deploy",
+    "trigger:dev": "trigger dev",
+    "trigger:deploy": "trigger deploy",
     "docs:dev": "cd docs && mintlify dev",
     "docs:openapi": "tsx scripts/generate-openapi.ts"
   },
@@ -50,6 +50,7 @@
     "eslint-config-next": "16.3.5",
     "msw": "2.15.0",
     "prisma": "7.10.0",
+    "trigger.dev": "4.6.3",
     "tsx": "4.23.13",
     "typescript": "5.9.3",
     "vitest": "5.0.1"

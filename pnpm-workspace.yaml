@@ -2,6 +2,7 @@ packages:
   - "packages/*"
 
 allowBuilds:
+  '@depot/cli': true
   '@prisma/engines': true
   esbuild: true
   msw: true
