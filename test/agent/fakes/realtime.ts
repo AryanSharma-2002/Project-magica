@@ -18,6 +18,11 @@ export class FakeRealtime implements RealtimeEmitter {
     this.flushCount += 1;
   }
 
+  /** Run-status transitions in publish order (patches without a status are skipped). */
+  statusPatches(): Array<RunMetadata["status"]> {
+    return this.metadataPatches.flatMap((p) => (p.status !== undefined ? [p.status] : []));
+  }
+
   textFor(index: number): string {
     return this.chunks
       .filter((c) => c.i === index)

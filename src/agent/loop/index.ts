@@ -172,6 +172,9 @@ async function runLoop(runId: string, deps: RunDeps, helpers: { sleep: Sleep; ra
     if (!stillActive) {
       return { status: "cancelled", blocks, usage, routedModel, requestedModel };
     }
+    // Realtime status must track the store (queued -> running here, running <-> waiting in tools.ts);
+    // the frontend gates the streaming label and the waitpoint overlay on it.
+    deps.realtime.metadata({ status: "running" });
 
     const attachmentsForCtx = snapshot.attachments.map((a) => ({ id: a.id, kind: a.kind, url: a.url ?? "", mimeType: a.mimeType }));
     const readyAttachmentsForPrompt = snapshot.attachments.filter((a) => a.status === "ready").map((a) => ({ kind: a.kind, url: a.url ?? "" }));

@@ -12,7 +12,7 @@ describe("runAgentTurn: approval waitpoints", () => {
     const run = makeRunRecord();
     const cropTool = makeTestTool({ name: "crop_image", estimate: 100_000, requiresApproval: "above_threshold" });
     const llm = new ScriptedLlm([toolCallTurn([{ id: "call_0", name: "crop_image", args: { value: 1 } }]), textTurn("Done!")]);
-    const { deps, store, waitpoints } = buildTestHarness({ store: { run, history: [userMessage("hi")] }, llm, tools: [cropTool], waitpointScript: [approve()] });
+    const { deps, store, waitpoints, realtime } = buildTestHarness({ store: { run, history: [userMessage("hi")] }, llm, tools: [cropTool], waitpointScript: [approve()] });
 
     const outcome = await runAgentTurn(run.id, deps);
 
@@ -22,6 +22,9 @@ describe("runAgentTurn: approval waitpoints", () => {
     const result = store.finalizeCalls[0]!.input.blocks.find((b): b is ToolResultBlock => b.type === "tool_result");
     expect(result?.status).toBe("completed");
     expect(store.statusHistory).toEqual(["waiting", "running"]);
+    // The realtime mirror follows the store: the frontend only shows the approval overlay while
+    // live.status === "waiting", so the transition must be published, not just persisted.
+    expect(realtime.statusPatches()).toEqual(["running", "waiting", "running", "completed"]);
   });
 
   it("cancels the tool call when approval is declined, and the model continues", async () => {
@@ -71,12 +74,13 @@ describe("runAgentTurn: plan mode", () => {
     const run = makeRunRecord({ planMode: true });
     const cropTool = makeTestTool({ name: "crop_image", estimate: 10 });
     const llm = new ScriptedLlm([toolCallTurn([{ id: "call_0", name: "crop_image", args: { value: 1 } }]), textTurn("Done!")]);
-    const { deps, waitpoints, store } = buildTestHarness({ store: { run, history: [userMessage("hi")] }, llm, tools: [cropTool], waitpointScript: [approvePlan()] });
+    const { deps, waitpoints, store, realtime } = buildTestHarness({ store: { run, history: [userMessage("hi")] }, llm, tools: [cropTool], waitpointScript: [approvePlan()] });
 
     const outcome = await runAgentTurn(run.id, deps);
 
     expect(outcome.status).toBe("completed");
     expect(waitpoints.asks[0]?.type).toBe("plan");
+    expect(realtime.statusPatches()).toEqual(["running", "waiting", "running", "completed"]);
     const result = store.finalizeCalls[0]!.input.blocks.find((b): b is ToolResultBlock => b.type === "tool_result");
     expect(result?.status).toBe("completed");
   });

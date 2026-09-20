@@ -23,6 +23,8 @@ describe("runAgentTurn: text-only turn", () => {
 
     // Realtime carried the same text at block index 0.
     expect(realtime.textFor(0)).toBe("Hello there!");
+    // Status mirror: queued (initial snapshot) -> running once claimed -> completed on finalize.
+    expect(realtime.statusPatches()).toEqual(["running", "completed"]);
 
     // Checkpointed at least once (after the LLM response).
     expect(store.checkpoints.length).toBeGreaterThanOrEqual(1);

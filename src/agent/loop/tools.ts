@@ -42,6 +42,16 @@ export function summarizeCallForPlan(call: LlmToolCall, tools: ToolRegistry): st
   return `${label}: ${summary}`;
 }
 
+/**
+ * RUNNING <-> WAITING transition. The store is the durable source of truth, but the realtime
+ * mirror must follow it: the frontend opens the waitpoint overlay only while live.status is
+ * "waiting" (chat-screen.tsx), so a store-only transition leaves the user with no way to approve.
+ */
+async function setRunStatus(deps: RunDeps, runId: string, status: "running" | "waiting"): Promise<void> {
+  await deps.store.setStatus(runId, status);
+  deps.realtime.metadata({ status });
+}
+
 export function waitpointExpiredError(): SafeError {
   return new AppError("waitpoint_expired", "Approval timed out. Send a new message to continue.", { retryable: false }).toSafe();
 }
@@ -199,7 +209,7 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
   let planDeclined = false;
   if (ctx.isFirstBatch && run.planMode && toolCalls.length > 0) {
     const steps = toolCalls.slice(0, cap).map((c) => ({ id: c.id.slice(0, 64), title: summarizeCallForPlan(c, deps.tools).slice(0, 300) }));
-    await deps.store.setStatus(run.id, "waiting");
+    await setRunStatus(deps, run.id, "waiting");
     const ask = await deps.waitpoints.ask({
       runId: run.id,
       toolInvocationId: null,
@@ -209,7 +219,7 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
     });
     if (ask.outcome.kind === "expired") return { kind: "stop", status: "failed", error: waitpointExpiredError() };
     if (ask.outcome.kind === "cancelled") return { kind: "stop", status: "cancelled" };
-    await deps.store.setStatus(run.id, "running");
+    await setRunStatus(deps, run.id, "running");
     const resolution = ask.outcome.resolution;
     if (resolution.type === "plan" && !resolution.approved) planDeclined = true;
   }
@@ -343,7 +353,7 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
     // ---- approval ----
     const needsApproval = activeTool.requiresApproval === "always" || (activeTool.requiresApproval === "above_threshold" && estimate > deps.limits.approvalThresholdMicrocredits);
     if (needsApproval) {
-      await deps.store.setStatus(run.id, "waiting");
+      await setRunStatus(deps, run.id, "waiting");
       await deps.store.updateInvocation(created.invocationId, { status: "waiting_approval" });
       realtime.metadata({
         tools: { [call.id]: liveToolState({ invocationId: created.invocationId, toolName: activeTool.name, status: "waiting_approval", index: blockIndex }) },
@@ -377,7 +387,7 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
         stopReason = { status: "cancelled" };
         continue;
       }
-      await deps.store.setStatus(run.id, "running");
+      await setRunStatus(deps, run.id, "running");
       const resolution = ask.outcome.resolution;
       const approved = resolution.type === "approval" && resolution.approved;
       if (!approved) {
