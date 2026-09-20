@@ -6,6 +6,8 @@ See **[ARCHITECTURE.md](./ARCHITECTURE.md)** (canonical design, shared with the 
 
 ## Setup
 
+Full step-by-step guide for both repos, including accounts, env variables and the run order: **[RUNBOOK.md](./RUNBOOK.md)**.
+
 ```bash
 corepack enable pnpm            # pnpm 12
 pnpm install
@@ -17,7 +19,7 @@ pnpm trigger:dev                # Trigger.dev dev worker (separate terminal)
 pnpm test && pnpm typecheck && pnpm lint
 ```
 
-Local Postgres: `createdb agent_chat agent_chat_test`. Tests run against `agent_chat_test`.
+Local Postgres: `createdb agent_chat` and `createdb agent_chat_test`. Tests run against `agent_chat_test`.
 
 ## Contracts
 
