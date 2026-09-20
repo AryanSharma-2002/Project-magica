@@ -8,3 +8,13 @@
 6. Definition of done: `pnpm typecheck && pnpm lint && pnpm test` green, tests for your slice present, no edits outside your ownership.
 7. The Prisma schema is frozen for this wave. Do not run `pnpm db:migrate` (`prisma migrate dev` is interactive and hangs). If you need a column, report it in your final summary. Apply existing migrations with `pnpm db:deploy`.
 8. Tests: `pnpm test`. DB tests read `TEST_DATABASE_URL` (see test/setup.ts). Keep unit tests pure (in-memory fakes against the ports); put DB tests under `test/db/`.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
