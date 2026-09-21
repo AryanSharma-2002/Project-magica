@@ -63,11 +63,13 @@ async function finalizeBestEffort(runId: string, status: "failed" | "cancelled",
   try {
     const store = createRunStore();
     const snapshot = await store.loadSnapshot(runId).catch(() => undefined);
-    const blocks = snapshot?.persistedBlocks ?? [];
+    const persisted = snapshot?.persistedBlocks ?? [];
     const error: SafeError =
       status === "cancelled"
         ? { code: "cancelled", message: "The run was cancelled.", retryable: false }
         : AppError.from(cause, { code: "internal" }).toSafe();
+    // Same rule as the loop's own finalize: a failed turn carries its safe error as a block.
+    const blocks = status === "failed" && !persisted.some((b) => b.type === "error") ? [...persisted, { type: "error" as const, error }] : persisted;
     await store.finalize(runId, { status, blocks, usage: EMPTY_USAGE, routedModel: null, error });
   } catch (err) {
     log.error({ err, status }, "agent-turn: best-effort finalize failed");

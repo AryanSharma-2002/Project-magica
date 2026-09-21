@@ -292,7 +292,15 @@ export function createAgentLoop(overrides: { sleep?: Sleep; random?: RandomFn } 
     const result = await runLoop(runId, deps, { sleep, random });
     const now = deps.now ?? (() => new Date());
 
-    const finalBlocks: ContentBlock[] = [...result.blocks, buildUsageBlock(result.usage, result.requestedModel)];
+    // A failed turn must be explainable from the UI alone (brief §11 Diagnosability): the safe error is
+    // persisted on the run AND as an `error` block in the assistant message, so the message renders
+    // the reason without a second request. Verified missing live 2026-09-21 (a rate-limited run showed
+    // only "unknown · 0 tokens" and Retry).
+    const finalBlocks: ContentBlock[] = [
+      ...result.blocks,
+      ...(result.status === "failed" && result.error ? [{ type: "error" as const, error: result.error }] : []),
+      buildUsageBlock(result.usage, result.requestedModel),
+    ];
 
     // store.finalize is the durable source of truth and MUST be called exactly once regardless of
     // what happens next; realtime is transport-only, so a metadata/flush failure here is logged
