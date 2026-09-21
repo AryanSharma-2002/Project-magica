@@ -1,8 +1,10 @@
 import { task } from "@trigger.dev/sdk";
-import type { RunUsage, SafeError } from "@agent-chat/contracts";
+import type { RunUsage, SafeError, WebhookEventType } from "@agent-chat/contracts";
+import type { RunOutcome, RunSnapshot } from "@/agent/loop/ports";
 import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { createRunStore } from "@/services/run-store";
+import { emitWebhookEvent } from "@/services/webhooks";
 import { runAgentTurn } from "@/agent/loop";
 import { buildRunDeps } from "./adapters/deps";
 
@@ -12,6 +14,43 @@ const EMPTY_USAGE: RunUsage = { model: null, promptTokens: 0, completionTokens: 
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * §5.2 point 1 / §9 emission points: `agent.started` fires right after the run snapshot is
+ * loaded (before the loop's own QUEUED->RUNNING transition, which happens inside `runAgentTurn`
+ * itself - a read-only module for this slice). Best-effort: `emitWebhookEvent` never throws, but
+ * this is wrapped anyway so a bug in argument construction can't fail the run either.
+ */
+async function emitAgentStarted(snapshot: RunSnapshot): Promise<void> {
+  try {
+    await emitWebhookEvent({
+      userId: snapshot.run.userId,
+      type: "agent.started",
+      data: { runId: snapshot.run.id, chatId: snapshot.run.chatId, status: "running" },
+    });
+  } catch (err) {
+    logger({ runId: snapshot.run.id }).error({ err }, "agent-turn: failed to emit agent.started webhook event");
+  }
+}
+
+/**
+ * §5.2 point 4 / §9: a `cancelled` outcome is reported as `agent.completed` with
+ * `data.status: "cancelled"` (per the ARCHITECTURE.md webhooks paragraph); `failed` is
+ * `agent.failed`. Only covers the loop's own normal return - see the final report for why
+ * `finalizeBestEffort` (onFailure/onCancel) does not also emit.
+ */
+async function emitAgentTerminal(snapshot: RunSnapshot, outcome: RunOutcome): Promise<void> {
+  try {
+    const type: WebhookEventType = outcome.status === "failed" ? "agent.failed" : "agent.completed";
+    await emitWebhookEvent({
+      userId: snapshot.run.userId,
+      type,
+      data: { runId: snapshot.run.id, chatId: snapshot.run.chatId, status: outcome.status },
+    });
+  } catch (err) {
+    logger({ runId: snapshot.run.id }).error({ err }, "agent-turn: failed to emit terminal webhook event");
+  }
 }
 
 /**
@@ -45,8 +84,10 @@ export const agentTurnTask = task({
     // cancellation and to maxDuration expiry by the platform, so it is used directly as the
     // loop's cooperative-cancellation signal rather than layering a second AbortController on
     // top of it.
-    const { deps } = await buildRunDeps({ runId: payload.runId, triggerRunId: params.ctx.run.id, signal: params.signal });
+    const { deps, snapshot } = await buildRunDeps({ runId: payload.runId, triggerRunId: params.ctx.run.id, signal: params.signal });
+    await emitAgentStarted(snapshot);
     const outcome = await runAgentTurn(payload.runId, deps);
+    await emitAgentTerminal(snapshot, outcome);
     await deps.realtime.flush();
     return outcome;
   },

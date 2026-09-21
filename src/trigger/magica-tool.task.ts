@@ -6,6 +6,7 @@ import { prisma, Prisma } from "@/lib/db";
 import { toolRegistry } from "@/agent/tools";
 import { providerChargeFromError, type ToolContext } from "@/agent/tools/types";
 import { ToolInvocationStatus } from "@/generated/prisma/enums";
+import { emitWebhookEvent } from "@/services/webhooks";
 
 /**
  * Durable child task for a single Magica tool invocation (ARCHITECTURE.md §5.3). Triggered via
@@ -27,6 +28,26 @@ export type MagicaToolSuccess = {
 };
 export type MagicaToolFailure = { ok: false; error: SafeError };
 export type MagicaToolResult = MagicaToolSuccess | MagicaToolFailure;
+
+/**
+ * §5.3 / §9 emission point: `tool.completed` fires for every COMPLETED Magica invocation,
+ * standalone or in a run. `chatId` is a cheap lookup off the invocation's `runId` when present
+ * (null for standalone public-API tool runs, which have no run/chat at all) - null is acceptable
+ * either way per the task brief. Best-effort: wrapped so a webhook problem can never fail the
+ * (already-successful) tool invocation.
+ */
+async function emitToolCompleted(invocation: { id: string; userId: string; runId: string | null; toolName: string }): Promise<void> {
+  try {
+    const chatId = invocation.runId ? ((await prisma.agentRun.findUnique({ where: { id: invocation.runId }, select: { chatId: true } }))?.chatId ?? null) : null;
+    await emitWebhookEvent({
+      userId: invocation.userId,
+      type: "tool.completed",
+      data: { runId: invocation.runId, chatId, status: "completed", toolInvocationId: invocation.id, toolName: invocation.toolName },
+    });
+  } catch (err) {
+    logger({ toolInvocationId: invocation.id }).error({ err }, "magica-tool: failed to emit tool.completed webhook event");
+  }
+}
 
 const TERMINAL_STATUSES: ReadonlySet<ToolInvocationStatus> = new Set([
   ToolInvocationStatus.COMPLETED,
@@ -107,6 +128,8 @@ export const magicaToolTask = task({
           finishedAt: new Date(),
         },
       });
+
+      await emitToolCompleted({ id: invocation.id, userId: invocation.userId, runId: invocation.runId, toolName });
 
       return { ok: true, output, providerRunId: providerRunId ?? null, microcreditsCharged: result.microcreditsCharged, durationMs: result.durationMs };
     } catch (err) {
