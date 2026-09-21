@@ -140,6 +140,12 @@ Frontend (in `../agent-chat-frontend`): `npx vercel link --yes --project agent-c
 
 Docs: `OPENAPI_BASE_URL=https://agent-chat-backend-tan.vercel.app pnpm docs:openapi`, then `docs/` to Mintlify.
 
+## 9b. Reviewer access
+
+- Reviewer account: `aryanmohit52+reviewer@gmail.com` with a password (created 2026-09-21 through the Clerk Backend API; the password is shared out of band, never committed).
+- Clerk's "verify sign-ins from new devices" (client trust) must stay **off** on this instance: it emails a one-time code to the account's inbox, which reviewers cannot read. It was disabled in the Clerk dashboard on 2026-09-21; re-check Configure → Security before sharing credentials.
+- The deployed app is a Clerk **development** instance (banner "Development mode"); that is acceptable for the trial and works on the vercel.app domain.
+
 ## 10. Not wired yet
 
 - `pnpm test:e2e` (frontend): no Playwright config exists; `e2e/README.md` holds the plan only.
