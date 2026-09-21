@@ -32,6 +32,8 @@ Mint an API key with a Clerk session (`POST /api-keys`, plaintext returned once)
 
 ## Deploy
 
+Live: API `https://agent-chat-backend-tan.vercel.app` (health at `/api/v1/health`), web app `https://agent-chat-frontend-pi.vercel.app`, Trigger.dev tasks deployed to the project's prod environment, PostgreSQL on Neon through the Vercel marketplace. Step by step in [RUNBOOK.md §9](./RUNBOOK.md).
+
 - API: Vercel (root of this repo). Set all variables from `.env.example`.
 - Tasks: `pnpm db:generate && pnpm trigger:deploy` (the generated Prisma client is gitignored; `agent-skills/` is bundled via `additionalFiles`; project ref via `TRIGGER_PROJECT_REF`).
 - Docs: `docs/` → Mintlify.
