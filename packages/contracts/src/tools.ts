@@ -100,7 +100,10 @@ export const GptImage2Quality = z.enum(["High", "Medium", "Low"]);
 export const GptImage2Input = z
   .object({
     prompt: z.string().min(1).max(4000),
-    image_urls: z.array(HttpsUrl).min(1).max(10).optional(),
+    /** Optional; an EMPTY array means text mode (callers check `length > 0`). No `.min(1)`: free
+     * models routinely send `image_urls: []`, and the live catalog schema defaults it to `[]`, so a
+     * parsed input must re-parse cleanly (the durable child task re-validates it). */
+    image_urls: z.array(HttpsUrl).max(10).optional(),
     size: GptImage2Size.default("Auto"),
     width: z.number().int().min(1024).max(3840).multipleOf(16).optional(),
     height: z.number().int().min(1024).max(3840).multipleOf(16).optional(),

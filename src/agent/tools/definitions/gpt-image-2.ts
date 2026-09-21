@@ -113,6 +113,12 @@ export function toProviderInput(input: GptImage2Input): Record<string, unknown> 
   return providerInput;
 }
 
+/**
+ * Live shape (verified 2026-09-21, run cmuaw742r0013l304egohpdlm): gpt_image_2 does NOT follow the
+ * `image_url` convention of crop_image. It returns
+ * `{ result: string[], provider, creditUsed, resultMetadata: [{ width, height, mimeType, ... }] }`.
+ * `images` / `image_url` are kept as fallbacks for the other shapes seen in the catalog docs.
+ */
 export function normalizeOutput(raw: unknown): GptImage2Output {
   let images: string[] = [];
   if (typeof raw === "string") {
@@ -121,7 +127,7 @@ export function normalizeOutput(raw: unknown): GptImage2Output {
     images = normalizeToUrlList(raw);
   } else if (raw && typeof raw === "object") {
     const obj = raw as Record<string, unknown>;
-    images = normalizeToUrlList(obj.images ?? obj.image_url ?? obj.images);
+    images = normalizeToUrlList(obj.result ?? obj.images ?? obj.image_url);
   }
   if (images.length === 0) {
     throw new AppError("provider_error", "Media provider returned an unexpected result", { retryable: true });

@@ -21,7 +21,8 @@
     "trigger:dev": "trigger dev",
     "trigger:deploy": "trigger deploy",
     "docs:dev": "cd docs && mintlify dev",
-    "docs:openapi": "tsx scripts/generate-openapi.ts"
+    "docs:openapi": "tsx scripts/generate-openapi.ts",
+    "acceptance": "tsx scripts/acceptance.ts"
   },
   "dependencies": {
     "@agent-chat/contracts": "workspace:*",

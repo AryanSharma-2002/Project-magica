@@ -14,7 +14,9 @@ import { ToolInvocationStatus } from "@/generated/prisma/enums";
  * parent can distinguish "the child ran and failed" from "the child itself crashed".
  */
 
-export type MagicaToolPayload = { invocationId: string };
+/** `input` is the parent loop's validated tool input (preferred). Older/replayed dispatches without it
+ * fall back to the persisted `ToolInvocation.input`, which is display-sanitized and may be lossy. */
+export type MagicaToolPayload = { invocationId: string; input?: JsonValue };
 
 export type MagicaToolSuccess = {
   ok: true;
@@ -63,7 +65,7 @@ export const magicaToolTask = task({
     try {
       const toolName = invocation.toolName as ToolName;
       const tool = toolRegistry.get(toolName);
-      const input = await toolRegistry.parseInput(toolName, invocation.input);
+      const input = await toolRegistry.parseInput(toolName, payload.input ?? invocation.input);
 
       await prisma.toolInvocation.update({
         where: { id: invocation.id },

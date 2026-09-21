@@ -17,6 +17,7 @@ pnpm db:generate
 pnpm dev                        # API on http://localhost:3001
 pnpm trigger:dev                # Trigger.dev dev worker (separate terminal)
 pnpm test && pnpm typecheck && pnpm lint
+pnpm acceptance                 # live conversations, one per tool + chained (RUNBOOK.md §12); latest report: ACCEPTANCE.md
 ```
 
 Local Postgres: `createdb agent_chat` and `createdb agent_chat_test`. Tests run against `agent_chat_test`.

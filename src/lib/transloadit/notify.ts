@@ -27,6 +27,10 @@ export type TransloaditAssemblyStatus = {
   assembly_id: string;
   fields?: Record<string, unknown>;
   results?: Record<string, TransloaditResultFile[]>;
+  /** Files received by `/upload/handle` (the `:original` step). Verified live 2026-09-21: a completed
+   * Assembly whose only step is `:original` reports `results: {}` and lists the files HERE, so this
+   * is the primary source for the no-storage-step configuration. */
+  uploads?: TransloaditResultFile[];
 };
 
 export class MalformedAssemblyStatusError extends Error {
@@ -50,10 +54,17 @@ export function parseAssemblyStatus(raw: string): TransloaditAssemblyStatus {
   return json as TransloaditAssemblyStatus;
 }
 
-/** `:original` unless a `store` step (S3/R2 permanent storage) was configured and ran. */
+/**
+ * `store` results when a storage step ran; otherwise the `/upload/handle` files. Transloadit reports
+ * those under `uploads` (and, depending on the plan/step naming, sometimes ALSO as
+ * `results[":original"]`), so both are consulted.
+ */
 export function pickResultFiles(assembly: TransloaditAssemblyStatus): TransloaditResultFile[] {
   const results = assembly.results ?? {};
-  return results.store ?? results[":original"] ?? [];
+  const original = results[":original"];
+  if (results.store && results.store.length > 0) return results.store;
+  if (original && original.length > 0) return original;
+  return assembly.uploads ?? [];
 }
 
 export function assemblyFailed(assembly: TransloaditAssemblyStatus): boolean {

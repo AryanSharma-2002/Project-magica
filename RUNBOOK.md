@@ -128,6 +128,7 @@ pnpm docs:dev         # runs `mintlify dev` inside docs/; needs the Mintlify CLI
 
 - `pnpm test:e2e` (frontend): no Playwright config exists; `e2e/README.md` holds the plan only.
 - Public API routes and outbound webhooks: schema and doc stubs only.
+- Transloadit `notify_url` on localhost: Transloadit cannot call `http://localhost:3001/...`, so a file uploaded through the browser stays `processing` locally. Either expose the API (for example `cloudflared tunnel --url http://localhost:3001`, then set `PUBLIC_API_BASE_URL` to the tunnel URL and restart) or use `pnpm acceptance`, which replays the signed Assembly Status to the notify route itself (section 12).
 
 ## 11. Troubleshooting
 
@@ -138,5 +139,29 @@ pnpm docs:dev         # runs `mintlify dev` inside docs/; needs the Mintlify CLI
 | `prisma migrate dev` hangs | use `pnpm db:deploy` |
 | Trigger CLI says you are not logged in | `pnpm exec trigger login` |
 | `next dev` rewrites `AGENTS.md` | expected; Next 16 appends its agent block. Commit it once or set `agentRules: false` in `next.config.ts` |
+| Upload chip stays "processing" forever | the Transloadit notification never reached the API (localhost, see section 10). The Assembly in the Transloadit dashboard shows `notify_status: error` |
+| A Magica tool fails with `malformed_tool_call` right after approval | fixed 2026-09-21: an optional media array defaulted to `[]` by the catalog was rejected on re-validation. If it recurs, compare `ToolInvocation.input` with the tool's live input schema |
 | Port 3001 or 3000 already in use | `lsof -ti :3001 \| xargs kill` (same for 3000) |
 | CORS error in the browser | `FRONTEND_ORIGIN` in the backend must equal the frontend origin exactly |
+
+## 12. Live acceptance conversations
+
+`pnpm acceptance` (scripts/acceptance.ts) drives one conversation per tool plus a chained one against the running local stack (sections 6 and 7 must be up), using the real credentials from `.env`:
+
+| Scenario | What it proves |
+|---|---|
+| `text` | a plain turn completes with no tool calls |
+| `skill` | `load_skill` runs and the skill is recorded on the run |
+| `crop` | a real Transloadit upload becomes READY, then `crop_image` runs on it and the reply carries an asset block |
+| `merge` | two uploaded clips go through `merge_videos` |
+| `gen` | `gpt_image_2` text-to-image, including the approval waitpoint above the credit threshold |
+| `chain` | `gpt_image_2` followed by `crop_image` on the generated URL, in one turn |
+| `deny` | a denied approval cancels the invocation and the run still completes |
+
+```bash
+pnpm acceptance                                  # all scenarios, report on stdout
+pnpm acceptance --only crop,merge --attempts 3   # subset; retries only model-quality failures
+pnpm acceptance --out ACCEPTANCE.md              # markdown report plus ACCEPTANCE.json
+```
+
+It mints a Clerk session JWT through the Clerk Backend API (`CLERK_SECRET_KEY`) for `ACCEPTANCE_CLERK_USER_ID`, or the most recently signed-in user. Fixture media is generated with ffmpeg on first use. It spends real Magica credits: about 5,000 µc per crop and up to a few hundred thousand µc per generated image. `openrouter/free` routes to a different model on every run, so a scenario can fail because the model ignored the instruction; such failures are retried once in a fresh chat, and every attempt is listed in the report with its routed model.

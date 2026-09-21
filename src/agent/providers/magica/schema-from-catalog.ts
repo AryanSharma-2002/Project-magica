@@ -80,7 +80,12 @@ function baseFieldSchema(field: CatalogField): z.ZodTypeAny {
       if (isArray) {
         let arr = z.array(HttpsUrl);
         const limit = field.maxItems ?? field.maxImages;
-        if (limit !== undefined) arr = arr.min(1).max(limit);
+        if (limit !== undefined) arr = arr.max(limit);
+        // `.min(1)` only for REQUIRED arrays. An optional media array can carry a catalog `default: []`
+        // (verified live: gpt-image-2-edit's `uploadedImages`), and once one parse materializes that
+        // `[]` the value must re-parse cleanly - the magica-tool child task re-validates the parent's
+        // parsed input. Callers treat an empty optional array as "absent" (gpt_image_2 subModelIdFor).
+        if (field.required) arr = arr.min(1);
         return arr;
       }
       return HttpsUrl;

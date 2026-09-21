@@ -1,4 +1,4 @@
-import type { SafeError } from "@agent-chat/contracts";
+import type { JsonValue, SafeError } from "@agent-chat/contracts";
 import { AppError } from "@/lib/errors";
 import type { DurableExecutor } from "@/agent/loop/ports";
 import { magicaToolTask, type MagicaToolResult } from "@/trigger/magica-tool.task";
@@ -15,9 +15,11 @@ import { magicaToolTask, type MagicaToolResult } from "@/trigger/magica-tool.tas
  */
 export function createDurableExecutor(): DurableExecutor {
   return {
-    async execute({ invocationId }) {
+    async execute({ invocationId, input }) {
+      // The parent's validated input rides along in the payload: the DB row holds the display-
+      // sanitized copy (merge_videos truncates long URL arrays), which must never be re-executed.
       const dispatched = await magicaToolTask.triggerAndWait(
-        { invocationId },
+        { invocationId, input: input as JsonValue },
         { idempotencyKey: invocationId, idempotencyKeyTTL: "24h" },
       );
 
