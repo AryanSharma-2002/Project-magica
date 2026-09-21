@@ -8,7 +8,7 @@
   },
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "next build",
+    "build": "prisma generate && next build",
     "start": "next start -p 3001",
     "typecheck": "tsc --noEmit -p tsconfig.json && pnpm --filter @agent-chat/contracts typecheck",
     "lint": "eslint .",

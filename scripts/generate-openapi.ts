@@ -102,7 +102,9 @@ const doc = {
     version: "1.0.0",
     description: "Versioned REST API for agent conversations, durable runs, human waitpoints, attachments, credits and Magica tool execution. All shapes are generated from the Zod contracts in packages/contracts.",
   },
-  servers: [{ url: "{baseUrl}/api/v1", variables: { baseUrl: { default: "http://localhost:3001" } } }],
+  // OPENAPI_BASE_URL (e.g. the Vercel deployment) becomes the default server so the hosted Mintlify
+  // reference can call the live API; localhost stays the fallback for local docs.
+  servers: [{ url: "{baseUrl}/api/v1", variables: { baseUrl: { default: process.env.OPENAPI_BASE_URL ?? "http://localhost:3001" } } }],
   tags: [...new Set(ops.map((o) => o.tag))].map((name) => ({ name })),
   components: {
     securitySchemes: {
