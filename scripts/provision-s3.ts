@@ -7,7 +7,7 @@
  * generated/* only, permissive read CORS, and a probe proving the policy (200 inside, 403 outside).
  */
 import { randomBytes } from "node:crypto";
-import { S3Client, CreateBucketCommand, HeadBucketCommand, PutPublicAccessBlockCommand, PutBucketPolicyCommand, PutBucketCorsCommand, PutObjectCommand, GetBucketLocationCommand } from "@aws-sdk/client-s3";
+import { S3Client, CreateBucketCommand, HeadBucketCommand, PutPublicAccessBlockCommand, PutBucketPolicyCommand, PutBucketCorsCommand, PutObjectCommand, DeleteObjectCommand, GetBucketLocationCommand } from "@aws-sdk/client-s3";
 
 const region = process.env.AWS_REGION ?? "us-east-1";
 const s3 = new S3Client({ region });
@@ -42,6 +42,8 @@ async function main() {
   await s3.send(new PutObjectCommand({ Bucket: bucket, Key: privateKey, Body: "secret", ContentType: "text/plain" }));
   const res2 = await fetch(`https://${bucket}.s3.${region}.amazonaws.com/${privateKey}`);
   console.log("anonymous GET outside media prefixes ->", res2.status, "(403 expected)");
+  // The probes have done their job; do not leave them in the bucket.
+  await Promise.all([key, privateKey].map((Key) => s3.send(new DeleteObjectCommand({ Bucket: bucket, Key }))));
   console.log("S3_BUCKET=" + bucket);
 }
 main().catch((e) => { console.error("FAILED:", e.name, e.message); process.exit(1); });

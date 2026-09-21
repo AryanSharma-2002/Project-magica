@@ -16,7 +16,7 @@ import type {
   RunStore,
 } from "@/agent/loop/ports";
 import type { ToolEffect } from "@/agent/tools/types";
-import { generatedAssetKey, getMediaStore } from "@/lib/storage/s3";
+import { DEFAULT_MIME_BY_KIND, deriveFilename, storeGeneratedAsset } from "@/services/generated-assets";
 import { logger } from "@/lib/logger";
 import { prisma, Prisma, mc } from "@/lib/db";
 import { errors } from "@/lib/errors";
@@ -39,13 +39,6 @@ const MESSAGE_TERMINAL_DB: Record<FinalizeInput["status"], "COMPLETED" | "FAILED
   cancelled: "CANCELLED",
 };
 
-const DEFAULT_MIME_BY_KIND: Record<string, string> = {
-  image: "image/png",
-  video: "video/mp4",
-  audio: "audio/mpeg",
-  file: "application/octet-stream",
-};
-
 /** Prisma 7 + @prisma/adapter-pg puts constraint info in the formatted message, not `meta.target`. */
 function isUniqueViolationOn(err: unknown, constraintName: string): boolean {
   if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") return false;
@@ -65,17 +58,6 @@ function toRunRecord(run: DbAgentRun): RunRecord {
     microcreditsReserved: mc(run.microcreditsReserved),
     cancelRequestedAt: run.cancelRequestedAt ? run.cancelRequestedAt.toISOString() : null,
   };
-}
-
-function deriveFilename(url: string, invocationId: string, index: number): string {
-  try {
-    const { pathname } = new URL(url);
-    const base = pathname.split("/").filter(Boolean).pop();
-    if (base) return decodeURIComponent(base).slice(0, 255);
-  } catch {
-    /* fall through to synthetic name */
-  }
-  return `generated-${invocationId}-${index}`;
 }
 
 /** Prisma implementation of RunStore (agent loop persistence port). */
@@ -239,23 +221,15 @@ export function createRunStore(): RunStore {
 
         // Durable copy: provider result URLs (Magica) expire, so when S3 storage is configured the
         // asset is copied to the bucket and the stored URL replaces the provider one (expiry cleared,
-        // source kept in `meta`). Storage trouble must never fail the run: fall back to the provider URL.
-        let url = asset.url;
-        let expiresAt = asset.expiresAt ? new Date(asset.expiresAt) : null;
-        let sizeBytes = 0;
-        let meta: Prisma.InputJsonValue | undefined;
-        const store = getMediaStore();
-        if (store) {
-          try {
-            const stored = await store.putFromUrl({ sourceUrl: asset.url, key: generatedAssetKey({ userId: args.userId, invocationId: args.invocationId, index: i, sourceUrl: asset.url, mimeType }), contentType: mimeType });
-            url = stored.url;
-            sizeBytes = stored.sizeBytes;
-            expiresAt = null;
-            meta = { sourceUrl: asset.url };
-          } catch (err) {
-            logger({ runId: args.runId, toolInvocationId: args.invocationId }).warn({ err }, "generated asset copy to S3 failed; keeping the provider URL");
-          }
-        }
+        // source kept in `meta`). Storage trouble never fails the run (services/generated-assets.ts).
+        const { url, sizeBytes, expiresAt, meta } = await storeGeneratedAsset({
+          userId: args.userId,
+          invocationId: args.invocationId,
+          index: i,
+          asset,
+          mimeType,
+          log: logger({ runId: args.runId, toolInvocationId: args.invocationId }),
+        });
 
         const created = await prisma.attachment.create({
           data: {

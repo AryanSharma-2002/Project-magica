@@ -151,9 +151,9 @@ Docs: `OPENAPI_BASE_URL=https://agent-chat-backend-tan.vercel.app pnpm docs:open
 
 Without storage, uploads live on Transloadit's temporary result URLs (24 h) and generated assets on Magica's expiring URLs. With an S3 bucket configured, both become durable:
 
-- **Uploads**: the upload Assembly gets a `/s3/store` step (`services/attachments.ts`) writing `uploads/<userId>/<nonce>/<file>` through Transloadit **Template Credentials** named by `TRANSLOADIT_STORE_CREDENTIALS`, with `acl: "bucket-default"`.
-- **Generated assets**: `run-store.saveGeneratedAssets` copies each provider result to `generated/<userId>/<invocationId>/<n>.<ext>` (`src/lib/storage/s3.ts`) and stores that URL with no expiry; the provider URL is kept in `Attachment.meta.sourceUrl`. A failed copy logs and falls back to the provider URL, never failing the run.
-- **Reads** are anonymous: the bucket policy grants `s3:GetObject` on `uploads/*` and `generated/*` only; ACLs stay blocked.
+- **Generated assets** (`services/generated-assets.ts`, `lib/storage/s3.ts`): every Magica result is copied to `generated/<userId>/<invocationId>/<n>.<ext>` and that URL is stored with no expiry; the provider URL is kept in `Attachment.meta.sourceUrl`. In-chat runs do this in the agent loop (`run-store.saveGeneratedAssets`); standalone `POST /tools/:name/run` runs do it inside the `magica-tool` child task before the row goes COMPLETED, so `GET /tools/runs/:id` and the `tool.completed` webhook already carry the durable URL. A failed copy logs and falls back to the provider URL, never failing the run. The copy runs **only in Trigger workers**: `S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` belong in `.env` (local worker) and on Trigger prod. The Vercel API never reads them.
+- **Uploads**: the upload Assembly gets a `/s3/store` step (`services/attachments.ts`) writing `uploads/<userId>/<nonce>/<file>` through Transloadit **Template Credentials** named by `TRANSLOADIT_STORE_CREDENTIALS` (`acl: "bucket-default"`). That variable is read by the **API** (`.env` + Vercel). Transloadit writes with the key pair stored on its side; our AWS keys never reach the browser.
+- **Reads** are anonymous: the bucket policy grants `s3:GetObject` on `uploads/*` and `generated/*` only; ACLs stay blocked (`BucketOwnerEnforced`). Objects are written with `cache-control: public, max-age=31536000, immutable`.
 
 ```bash
 # IAM user needs s3:CreateBucket + bucket admin for the first run (AmazonS3FullAccess is fine for the trial), then only object access.
@@ -161,7 +161,11 @@ pnpm exec tsx scripts/provision-s3.ts                       # creates agent-chat
 pnpm exec tsx scripts/provision-transloadit-credentials.ts  # registers the bucket with Transloadit as "agent-chat-s3"
 ```
 
-Then set `S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `TRANSLOADIT_STORE_CREDENTIALS=agent-chat-s3` in `.env`, on Vercel (backend) and on Trigger prod (the copy runs inside the agent-turn task), and redeploy both. Minimal IAM policy for the app after provisioning: `s3:PutObject`, `s3:GetObject` on `arn:aws:s3:::<bucket>/*`. Rotate the access key after setup if it was ever shared in plain text.
+`provision-transloadit-credentials.ts` needs a Transloadit auth key whose scope covers Template Credentials; a key limited to Assemblies gets `403 INSUFFICIENT_AUTH_SCOPE`. Alternative: create them by hand in the Transloadit console (Template Credentials -> Amazon S3, name `agent-chat-s3`, the bucket, its region, the IAM key pair). **Only after they exist** set `TRANSLOADIT_STORE_CREDENTIALS=agent-chat-s3` (`.env`, Vercel) and redeploy the API: a name Transloadit does not know fails every upload Assembly.
+
+Verify: `PUBLIC_API_BASE_URL=<api> pnpm acceptance --only tool_api` must report an asset URL on the bucket host, and `curl -I <that url>` returns 200 with the immutable cache header; once the Transloadit credentials exist, an upload's `url` must be under `uploads/`.
+
+State on 2026-09-21: bucket `agent-chat-media-acb26644` (us-east-1) provisioned and generated-asset storage live on Trigger prod; upload storage waits on the Transloadit credentials above. Afterwards rotate the IAM access key if it was ever shared in plain text, and replace AmazonS3FullAccess with `s3:PutObject` + `s3:GetObject` on `arn:aws:s3:::agent-chat-media-acb26644/*`.
 
 ## 10. Not wired yet
 

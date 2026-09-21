@@ -7,6 +7,7 @@ import { toolRegistry } from "@/agent/tools";
 import { providerChargeFromError, type ToolContext } from "@/agent/tools/types";
 import { ToolInvocationStatus } from "@/generated/prisma/enums";
 import { emitWebhookEvent } from "@/services/webhooks";
+import { persistStandaloneToolAssets } from "@/services/generated-assets";
 
 /**
  * Durable child task for a single Magica tool invocation (ARCHITECTURE.md §5.3). Triggered via
@@ -114,7 +115,12 @@ export const magicaToolTask = task({
       };
 
       const result = await tool.execute(input, ctx);
-      const output = toolRegistry.parseOutput(toolName, result.output) as JsonValue;
+      const parsedOutput = toolRegistry.parseOutput(toolName, result.output) as JsonValue;
+      // In-chat runs: the agent loop applies the tool's asset effects itself (RunStore.saveGeneratedAssets).
+      // Standalone public-API runs (runId null) have no loop, so the durable copy + Attachment rows happen
+      // here, BEFORE the row goes COMPLETED and before `tool.completed` is emitted - a consumer reacting to
+      // the webhook already reads the stored URLs from GET /tools/runs/:id.
+      const output = invocation.runId === null ? await persistStandaloneToolAssets({ tool, output: parsedOutput, ctx, log }) : parsedOutput;
       const providerRunId = result.providerRunId ?? invocation.providerRunId;
 
       await prisma.toolInvocation.update({
