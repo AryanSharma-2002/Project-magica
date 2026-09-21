@@ -127,7 +127,8 @@ export const WebhookEvent = z.object({
   id: Id,
   type: WebhookEventType,
   createdAt: IsoDate,
-  data: z.object({ runId: Id, chatId: Id, status: z.string(), toolInvocationId: Id.optional(), toolName: z.string().optional() }),
+  /** `runId`/`chatId` are null for `tool.completed` events from standalone public tool runs. */
+  data: z.object({ runId: Id.nullable(), chatId: Id.nullable(), status: z.string(), toolInvocationId: Id.optional(), toolName: z.string().optional() }),
 });
 export const ListWebhooksResponse = z.object({ items: z.array(WebhookEndpoint) });
 export type WebhookEvent = z.infer<typeof WebhookEvent>;
