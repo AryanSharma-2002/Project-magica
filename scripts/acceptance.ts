@@ -6,6 +6,8 @@
  *   pnpm acceptance                                   # all scenarios
  *   pnpm acceptance --only crop,merge --attempts 3    # subset, more retries
  *   pnpm acceptance --out ACCEPTANCE.md               # markdown + JSON sidecar
+ *   pnpm acceptance --only deny --out ACCEPTANCE.md --append   # re-run some scenarios and merge them into the existing report
+ *   pnpm acceptance ... --note "OpenRouter daily cap hit at 08:12 UTC"   # free-text line kept in the report header
  *
  * Auth: a Clerk session JWT is minted through the Clerk Backend API (CLERK_SECRET_KEY) for
  * ACCEPTANCE_CLERK_USER_ID, or the most recently signed-in user of the instance. One fresh JWT per
@@ -818,11 +820,15 @@ function evaluate(s: Scenario, t: TurnResult, chatId: string, attempt: number): 
   };
 }
 
-function markdownReport(records: AttemptRecord[], meta: { startedAt: string; apiBase: string; clerkUserId: string }): string {
+type ReportMeta = { startedAt: string; apiBase: string; clerkUserId: string; reruns?: Array<{ scenarios: string[]; at: string }>; notes?: string[] };
+
+function markdownReport(records: AttemptRecord[], meta: ReportMeta): string {
   const lines: string[] = [];
   lines.push("# Acceptance conversations");
   lines.push("");
   lines.push(`Run started ${meta.startedAt} against ${meta.apiBase} as Clerk user \`${meta.clerkUserId}\`. Produced by \`pnpm acceptance\` (scripts/acceptance.ts).`);
+  for (const rerun of meta.reruns ?? []) lines.push(`Re-run with \`--append\` at ${rerun.at}: ${rerun.scenarios.join(", ")} (earlier attempts of those scenarios were replaced).`);
+  for (const note of meta.notes ?? []) lines.push(`Note: ${note}`);
   lines.push("");
   lines.push("| Scenario | Attempt | Routed model | Run | Tools (status, est/charged µc) | Waitpoints | Assets | Time | Result |");
   lines.push("|---|---|---|---|---|---|---|---|---|");
@@ -907,11 +913,35 @@ async function main(): Promise<void> {
     }
   }
 
-  const report = markdownReport(records, { startedAt, apiBase, clerkUserId });
+  // --append: merge this run into an existing report (same --out), replacing earlier attempts of
+  // the scenarios that ran now and keeping everything else. Used to re-run scenarios that failed
+  // for environmental reasons (e.g. OpenRouter free-tier rate limiting) without spending credits
+  // on the ones that already passed.
+  const append = process.argv.includes("--append");
+  const note = arg("note", "");
+  const jsonPath = out ? out.replace(/\.md$/, "") + ".json" : "";
+  let allRecords = records;
+  let meta: ReportMeta = { startedAt, apiBase, clerkUserId, ...(note ? { notes: [note] } : {}) };
+  if (out && append && existsSync(jsonPath)) {
+    const previous = JSON.parse(readFileSync(jsonPath, "utf8")) as ReportMeta & { records: AttemptRecord[] };
+    const rerun = new Set(records.map((r) => r.scenario));
+    const order = [...SCENARIOS.map((s) => s.key), ...PUBLIC_SCENARIO_KEYS];
+    allRecords = [...previous.records.filter((r) => !rerun.has(r.scenario)), ...records].sort(
+      (a, b) => order.indexOf(a.scenario) - order.indexOf(b.scenario) || a.attempt - b.attempt,
+    );
+    meta = {
+      startedAt: previous.startedAt,
+      apiBase: previous.apiBase,
+      clerkUserId: previous.clerkUserId || clerkUserId,
+      reruns: [...(previous.reruns ?? []), { scenarios: [...rerun], at: startedAt }],
+      ...(previous.notes || note ? { notes: [...(previous.notes ?? []), ...(note ? [note] : [])] } : {}),
+    };
+  }
+  const report = markdownReport(allRecords, meta);
   if (out) {
     writeFileSync(out, `${report}\n`);
-    writeFileSync(out.replace(/\.md$/, "") + ".json", `${JSON.stringify({ startedAt, apiBase, clerkUserId, records }, null, 2)}\n`);
-    log(`report written to ${out}`);
+    writeFileSync(jsonPath, `${JSON.stringify({ ...meta, records: allRecords }, null, 2)}\n`);
+    log(`report written to ${out}${append ? " (merged)" : ""}`);
   }
   console.log(`\n${report}`);
 

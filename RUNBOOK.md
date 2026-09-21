@@ -140,6 +140,8 @@ pnpm docs:dev         # runs `mintlify dev` inside docs/; needs the Mintlify CLI
 | Trigger CLI says you are not logged in | `pnpm exec trigger login` |
 | `next dev` rewrites `AGENTS.md` | expected; Next 16 appends its agent block. Commit it once or set `agentRules: false` in `next.config.ts` |
 | Upload chip stays "processing" forever | the Transloadit notification never reached the API (localhost, see section 10). The Assembly in the Transloadit dashboard shows `notify_status: error` |
+| Every run fails with `provider_unavailable` "The model provider is rate limiting requests" | OpenRouter free tier: **50 requests per day** per account without credits (`free-models-per-day`, resets at 00:00 UTC). A full `pnpm acceptance` run uses roughly 30. Adding 10 USD of credits to the OpenRouter account raises the free-model limit to 1,000 per day without changing `OPENROUTER_MODEL` |
+| A turn with an image attachment fails immediately with `provider_error` (400) and no `routedModel` | `openrouter/free` routed a multimodal message to a text-only model. Send again (a different model is routed); the attachment URLs are also in the system prompt as text, so a retry without image parts would be a safe fallback (not implemented) |
 | A Magica tool fails with `malformed_tool_call` right after approval | fixed 2026-09-21: an optional media array defaulted to `[]` by the catalog was rejected on re-validation. If it recurs, compare `ToolInvocation.input` with the tool's live input schema |
 | Port 3001 or 3000 already in use | `lsof -ti :3001 \| xargs kill` (same for 3000) |
 | CORS error in the browser | `FRONTEND_ORIGIN` in the backend must equal the frontend origin exactly |
@@ -166,6 +168,7 @@ pnpm acceptance                                  # all scenarios, report on stdo
 pnpm acceptance --only crop,merge --attempts 3   # subset; retries only model-quality failures
 pnpm acceptance --out ACCEPTANCE.md              # markdown report plus ACCEPTANCE.json
 pnpm acceptance --only apikey,tool_api,webhook   # public API + webhooks only (cheap: one crop)
+pnpm acceptance --only deny --out ACCEPTANCE.md --append   # re-run failed scenarios and merge them into the existing report
 ```
 
-It mints a Clerk session JWT through the Clerk Backend API (`CLERK_SECRET_KEY`) for `ACCEPTANCE_CLERK_USER_ID`, or the most recently signed-in user. Fixture media is generated with ffmpeg on first use. It spends real Magica credits: about 5,000 µc per crop and up to a few hundred thousand µc per generated image. `openrouter/free` routes to a different model on every run, so a scenario can fail because the model ignored the instruction; such failures are retried once in a fresh chat, and every attempt is listed in the report with its routed model.
+OpenRouter's free tier allows 50 requests per day without credits; a full run needs about 30, so at most one full run per day fits (see section 11).  (`CLERK_SECRET_KEY`) for `ACCEPTANCE_CLERK_USER_ID`, or the most recently signed-in user. Fixture media is generated with ffmpeg on first use. It spends real Magica credits: about 5,000 µc per crop and up to a few hundred thousand µc per generated image. `openrouter/free` routes to a different model on every run, so a scenario can fail because the model ignored the instruction; such failures are retried once in a fresh chat, and every attempt is listed in the report with its routed model.
