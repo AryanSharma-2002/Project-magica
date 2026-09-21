@@ -126,60 +126,73 @@ export async function listLedger(userId: string, cursor: string | undefined, lim
   return { items: page.items.map(serializeLedgerEntry), nextCursor: page.nextCursor };
 }
 
+/**
+ * Public-API additive change (see final report): `CreditPort` (src/agent/loop/ports.ts, frozen)
+ * declares `runId: string` because every agent-loop tool call belongs to a real `AgentRun`. The
+ * public `/tools/:name/run` path has no run at all — `ToolInvocation.runId` and
+ * `CreditLedger.runId` are both nullable FKs precisely for this case (prisma/schema.prisma).
+ * These three are promoted to module-level exports accepting `runId: string | null` (plus an
+ * optional `tx` like `reserveAdmission`/`releaseAdmission`) so the public-API services and the
+ * `tool-run` task can call them directly with `runId: null`. `createCreditPort()` below simply
+ * delegates to them, so every existing agent-loop call site (always passing a real run id) is
+ * unaffected — `CreditPort`'s interface methods are declared with method-shorthand syntax, which
+ * TypeScript checks bivariantly, so a wider `runId: string | null` parameter still satisfies it.
+ */
+export async function reserveInvocation(args: { userId: string; runId: string | null; invocationId: string; microcredits: number }, tx?: Db): Promise<void> {
+  await runInTx(tx, (db) =>
+    writeLedgerEntry(db, {
+      userId: args.userId,
+      type: "RESERVE",
+      amount: -BigInt(args.microcredits),
+      idempotencyKey: `reserve:${args.invocationId}`,
+      description: "Tool reservation",
+      runId: args.runId,
+      toolInvocationId: args.invocationId,
+      enforceSufficient: true,
+    }),
+  );
+}
+
+export async function settleInvocation(args: { userId: string; runId: string | null; invocationId: string; estimated: number; charged: number }, tx?: Db): Promise<void> {
+  await runInTx(tx, async (db) => {
+    await writeLedgerEntry(db, {
+      userId: args.userId,
+      type: "RELEASE",
+      amount: BigInt(args.estimated),
+      idempotencyKey: `release:${args.invocationId}`,
+      description: "Tool estimate release",
+      runId: args.runId,
+      toolInvocationId: args.invocationId,
+      enforceSufficient: false,
+    });
+    await writeLedgerEntry(db, {
+      userId: args.userId,
+      type: "CHARGE",
+      amount: -BigInt(args.charged),
+      idempotencyKey: `charge:${args.invocationId}`,
+      description: "Tool charge",
+      runId: args.runId,
+      toolInvocationId: args.invocationId,
+      enforceSufficient: false,
+    });
+  });
+}
+
+export async function releaseInvocation(args: { userId: string; runId: string | null; invocationId: string; estimated: number }, tx?: Db): Promise<void> {
+  await runInTx(tx, (db) =>
+    writeLedgerEntry(db, {
+      userId: args.userId,
+      type: "RELEASE",
+      amount: BigInt(args.estimated),
+      idempotencyKey: `release:${args.invocationId}`,
+      description: "Tool release",
+      runId: args.runId,
+      toolInvocationId: args.invocationId,
+      enforceSufficient: false,
+    }),
+  );
+}
+
 export function createCreditPort(): CreditPort {
-  return {
-    balance,
-    async reserveInvocation(args: { userId: string; runId: string; invocationId: string; microcredits: number }): Promise<void> {
-      await prisma.$transaction((tx) =>
-        writeLedgerEntry(tx, {
-          userId: args.userId,
-          type: "RESERVE",
-          amount: -BigInt(args.microcredits),
-          idempotencyKey: `reserve:${args.invocationId}`,
-          description: "Tool reservation",
-          runId: args.runId,
-          toolInvocationId: args.invocationId,
-          enforceSufficient: true,
-        }),
-      );
-    },
-    async settleInvocation(args: { userId: string; runId: string; invocationId: string; estimated: number; charged: number }): Promise<void> {
-      await prisma.$transaction(async (tx) => {
-        await writeLedgerEntry(tx, {
-          userId: args.userId,
-          type: "RELEASE",
-          amount: BigInt(args.estimated),
-          idempotencyKey: `release:${args.invocationId}`,
-          description: "Tool estimate release",
-          runId: args.runId,
-          toolInvocationId: args.invocationId,
-          enforceSufficient: false,
-        });
-        await writeLedgerEntry(tx, {
-          userId: args.userId,
-          type: "CHARGE",
-          amount: -BigInt(args.charged),
-          idempotencyKey: `charge:${args.invocationId}`,
-          description: "Tool charge",
-          runId: args.runId,
-          toolInvocationId: args.invocationId,
-          enforceSufficient: false,
-        });
-      });
-    },
-    async releaseInvocation(args: { userId: string; runId: string; invocationId: string; estimated: number }): Promise<void> {
-      await prisma.$transaction((tx) =>
-        writeLedgerEntry(tx, {
-          userId: args.userId,
-          type: "RELEASE",
-          amount: BigInt(args.estimated),
-          idempotencyKey: `release:${args.invocationId}`,
-          description: "Tool release",
-          runId: args.runId,
-          toolInvocationId: args.invocationId,
-          enforceSufficient: false,
-        }),
-      );
-    },
-  };
+  return { balance, reserveInvocation, settleInvocation, releaseInvocation };
 }
