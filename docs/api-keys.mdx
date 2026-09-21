@@ -31,4 +31,4 @@ curl "$BASE/api/v1/runs/$RUN_ID" -H "Authorization: Bearer ak_live_..."
 
 ## List and revoke
 
-`GET /api-keys` lists your keys (including revoked ones, with `revokedAt` set). `DELETE /api-keys/{keyId}` revokes a key immediately; requests with a revoked key fail with `401 unauthorized`. Revoking is idempotent.
+`GET /api-keys` lists your keys (including revoked ones, with `revokedAt` set). `DELETE /api-keys/{keyId}` revokes a key immediately; requests with a revoked key fail with `401 unauthorized`. Revoking is idempotent. An account can hold at most 20 active keys; revoke one to free a slot.

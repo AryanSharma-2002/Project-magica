@@ -2,6 +2,10 @@ import type { ApiKey, ListApiKeysResponse } from "@agent-chat/contracts";
 import { prisma } from "@/lib/db";
 import { errors } from "@/lib/errors";
 import { createApiKey } from "@/lib/auth/index";
+import { assertChatMutationRateLimit } from "@/lib/rate-limit";
+
+/** Active (non-revoked) keys per account. */
+export const MAX_ACTIVE_API_KEYS_PER_USER = 20;
 import type { ApiKey as DbApiKey } from "@/generated/prisma/client";
 
 /**
@@ -25,6 +29,11 @@ function serialize(row: DbApiKey, plaintext?: string): ApiKey {
 
 /** Returns the plaintext key ONCE; only its SHA-256 hash is ever persisted. */
 export async function createKey(userId: string, name: string): Promise<ApiKey> {
+  await assertChatMutationRateLimit(userId);
+  const active = await prisma.apiKey.count({ where: { userId, revokedAt: null } });
+  if (active >= MAX_ACTIVE_API_KEYS_PER_USER) {
+    throw errors.validation(`At most ${MAX_ACTIVE_API_KEYS_PER_USER} active API keys per account; revoke one first`, { reason: "too_many_api_keys", max: MAX_ACTIVE_API_KEYS_PER_USER });
+  }
   const { id, plaintext } = await createApiKey(userId, name);
   const row = await prisma.apiKey.findUniqueOrThrow({ where: { id } });
   return serialize(row, plaintext);

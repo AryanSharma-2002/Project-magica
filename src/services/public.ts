@@ -15,6 +15,7 @@ import { getEnv } from "@/lib/env";
 import { AppError, errors } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { balance, releaseInvocation, reserveInvocation } from "@/lib/credits";
+import { assertSendRateLimit } from "@/lib/rate-limit";
 import { toolRegistry } from "@/agent/tools";
 import { guessMimeType } from "@/agent/tools/definitions/shared";
 import type { ToolContext } from "@/agent/tools/types";
@@ -99,6 +100,30 @@ async function findExistingCompletionRun(userId: string, raw: string) {
 }
 
 export async function createCompletion(
+  principalUserId: string,
+  body: PublicCompletionRequest,
+  idempotencyKeyHeader: string | null,
+): Promise<PublicCompletionResponse> {
+  const raw = idempotencyKeyHeader?.trim();
+
+  // Without a chatId the run's idempotency key (`${userId}:${chatId}:${raw}`) cannot be known up
+  // front, so two concurrent identical requests could both miss the lookup and each create a chat
+  // and a run. A transaction-scoped advisory lock on (user, raw key) serializes them: the second
+  // waits until the first has committed its run, then finds it. Only the lock lives in this
+  // transaction; every write below goes through the shared client so it is visible immediately.
+  if (!body.chatId && raw) {
+    return prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`public-completion:${principalUserId}:${raw}`}))`;
+        return createCompletionUnlocked(principalUserId, body, idempotencyKeyHeader);
+      },
+      { timeout: 30_000 },
+    );
+  }
+  return createCompletionUnlocked(principalUserId, body, idempotencyKeyHeader);
+}
+
+async function createCompletionUnlocked(
   principalUserId: string,
   body: PublicCompletionRequest,
   idempotencyKeyHeader: string | null,
@@ -207,6 +232,8 @@ export async function startToolRun(userId: string, toolName: string, body: Publi
   if (!toolRegistry.has(toolName)) throw errors.notFound("Tool");
   const tool = toolRegistry.get(toolName);
   if (tool.execution !== "durable_child_task") throw errors.notFound("Tool");
+  // Same budget as sending a message: a standalone tool run is one paid provider job.
+  await assertSendRateLimit(userId);
 
   // `parseInput` throws `malformed_tool_call`, which the repo-wide HTTP mapping treats as a
   // provider-side failure (502) because inside a run it means the MODEL produced bad arguments.

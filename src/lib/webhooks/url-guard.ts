@@ -46,12 +46,27 @@ function inV4Range(ip: number, base: string, maskBits: number): boolean {
   return (ip & mask) === (baseInt & mask);
 }
 
-/** 127/8 (loopback), 10/8, 172.16/12, 192.168/16, 169.254/16 (link-local, incl. cloud metadata), 0.0.0.0. */
+/**
+ * Everything that is not global unicast: 0/8, 127/8 (loopback), 10/8, 172.16/12, 192.168/16,
+ * 100.64/10 (CGNAT), 169.254/16 (link-local, incl. cloud metadata), 192.0.0/24, 198.18/15
+ * (benchmarking), 224/4 (multicast), 240/4 (reserved, incl. 255.255.255.255).
+ */
 function isBlockedV4(ip: string): boolean {
   const n = ipv4ToInt(ip);
-  if (n === null) return false;
-  if (n === 0) return true; // 0.0.0.0
-  return inV4Range(n, "127.0.0.0", 8) || inV4Range(n, "10.0.0.0", 8) || inV4Range(n, "172.16.0.0", 12) || inV4Range(n, "192.168.0.0", 16) || inV4Range(n, "169.254.0.0", 16);
+  if (n === null) return true; // unparsable: fail closed
+  return (
+    inV4Range(n, "0.0.0.0", 8) ||
+    inV4Range(n, "127.0.0.0", 8) ||
+    inV4Range(n, "10.0.0.0", 8) ||
+    inV4Range(n, "172.16.0.0", 12) ||
+    inV4Range(n, "192.168.0.0", 16) ||
+    inV4Range(n, "100.64.0.0", 10) ||
+    inV4Range(n, "169.254.0.0", 16) ||
+    inV4Range(n, "192.0.0.0", 24) ||
+    inV4Range(n, "198.18.0.0", 15) ||
+    inV4Range(n, "224.0.0.0", 4) ||
+    inV4Range(n, "240.0.0.0", 4)
+  );
 }
 
 function isLoopbackV4(ip: string): boolean {
@@ -59,20 +74,77 @@ function isLoopbackV4(ip: string): boolean {
   return n !== null && inV4Range(n, "127.0.0.0", 8);
 }
 
-/** ::1 (loopback), :: (unspecified), fe80::/10 (link-local), fc00::/7 (unique-local), and IPv4-mapped addresses. */
+/**
+ * Expands any textual IPv6 address (compressed `::`, embedded dotted-quad tail such as
+ * `::ffff:127.0.0.1`) into its 8 hextets. Returns null for anything that is not a valid IPv6
+ * address. Classification below is NUMERIC: the WHATWG URL parser re-serializes IPv6 hostnames
+ * into compressed hex groups (`new URL("https://[::ffff:127.0.0.1]/").hostname` is
+ * `[::ffff:7f00:1]`), so any text/regex-based check on the spelling is bypassable.
+ */
+export function expandIpv6(rawAddress: string): number[] | null {
+  let address = rawAddress.toLowerCase();
+  const zone = address.indexOf("%");
+  if (zone !== -1) address = address.slice(0, zone);
+  // Embedded IPv4 tail -> two hextets.
+  const lastColon = address.lastIndexOf(":");
+  const tail = address.slice(lastColon + 1);
+  if (tail.includes(".")) {
+    const v4 = ipv4ToInt(tail);
+    if (v4 === null) return null;
+    address = `${address.slice(0, lastColon + 1)}${((v4 >>> 16) & 0xffff).toString(16)}:${(v4 & 0xffff).toString(16)}`;
+  }
+  const halves = address.split("::");
+  if (halves.length > 2) return null;
+  const parse = (part: string): number[] | null => {
+    if (part === "") return [];
+    const groups = part.split(":");
+    const out: number[] = [];
+    for (const g of groups) {
+      if (!/^[0-9a-f]{1,4}$/.test(g)) return null;
+      out.push(parseInt(g, 16));
+    }
+    return out;
+  };
+  const head = parse(halves[0] ?? "");
+  const rest = halves.length === 2 ? parse(halves[1] ?? "") : [];
+  if (head === null || rest === null) return null;
+  if (halves.length === 2) {
+    const missing = 8 - head.length - rest.length;
+    if (missing < 1) return null;
+    return [...head, ...new Array<number>(missing).fill(0), ...rest];
+  }
+  return head.length === 8 ? head : null;
+}
+
+function v4FromTail(hextets: number[]): string {
+  const hi = hextets[6] ?? 0;
+  const lo = hextets[7] ?? 0;
+  return `${hi >>> 8}.${hi & 0xff}.${lo >>> 8}.${lo & 0xff}`;
+}
+
+/**
+ * ::1 (loopback), :: (unspecified), fe80::/10 (link-local), fc00::/7 (unique-local),
+ * IPv4-mapped ::ffff:0:0/96 and NAT64 64:ff9b::/96 (both classified by their embedded IPv4),
+ * plus anything unparsable (fail closed).
+ */
 function isBlockedV6(rawAddress: string): boolean {
-  const address = rawAddress.toLowerCase();
-  if (address === "::1" || address === "::") return true;
-  const v4Mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(address);
-  if (v4Mapped?.[1]) return isBlockedV4(v4Mapped[1]);
-  const firstHextet = address.split(":")[0] ?? "";
-  if (["fe8", "fe9", "fea", "feb"].some((p) => firstHextet.startsWith(p))) return true; // fe80::/10
-  if (firstHextet.startsWith("fc") || firstHextet.startsWith("fd")) return true; // fc00::/7
+  const h = expandIpv6(rawAddress);
+  if (!h) return true;
+  const allZero = (from: number, to: number) => h.slice(from, to).every((x) => x === 0);
+  if (allZero(0, 7) && ((h[7] ?? 0) === 0 || (h[7] ?? 0) === 1)) return true; // :: and ::1
+  if (allZero(0, 5) && h[5] === 0xffff) return isBlockedV4(v4FromTail(h)); // ::ffff:a.b.c.d
+  if (h[0] === 0x64 && h[1] === 0xff9b && allZero(2, 6)) return isBlockedV4(v4FromTail(h)); // 64:ff9b::a.b.c.d (NAT64)
+  if (((h[0] ?? 0) & 0xffc0) === 0xfe80) return true; // fe80::/10
+  if (((h[0] ?? 0) & 0xfe00) === 0xfc00) return true; // fc00::/7
   return false;
 }
 
 function isLoopbackV6(rawAddress: string): boolean {
-  return rawAddress.toLowerCase() === "::1";
+  const h = expandIpv6(rawAddress);
+  if (!h) return false;
+  if (h.slice(0, 7).every((x) => x === 0) && h[7] === 1) return true; // ::1
+  if (h.slice(0, 5).every((x) => x === 0) && h[5] === 0xffff) return isLoopbackV4(v4FromTail(h)); // ::ffff:127.x
+  return false;
 }
 
 function stripBrackets(hostname: string): string {

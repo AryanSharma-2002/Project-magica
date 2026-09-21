@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("@trigger.dev/sdk", () => ({
   task: vi.fn((opts: unknown) => opts),
 }));
+// The task re-validates the endpoint URL right before connecting (DNS rebinding guard); these tests
+// use a fake public hostname, so the guard's real DNS lookup is stubbed out here. The guard itself is
+// covered by test/webhooks/url-guard*.test.ts and the rejection path by webhook-deliver-hardening.test.ts.
+vi.mock("@/lib/webhooks/url-guard", () => ({
+  assertDeliverableUrl: vi.fn(async () => undefined),
+}));
 
 import { prisma } from "@/lib/db";
 import { verifyWebhookSignature } from "@/lib/webhooks/signature";

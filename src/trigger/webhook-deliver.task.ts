@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { logger } from "@/lib/logger";
 import { WebhookDeliveryStatus } from "@/generated/prisma/enums";
 import { signWebhookPayload } from "@/lib/webhooks/signature";
+import { assertDeliverableUrl } from "@/lib/webhooks/url-guard";
 
 /**
  * Delivers one WebhookDelivery row (ARCHITECTURE.md §9 "Webhooks:" paragraph). Triggered from
@@ -24,6 +25,27 @@ const FETCH_TIMEOUT_MS = 10_000;
 function nextBackoffDelayMs(attemptNumber: number): number {
   const delay = BASE_DELAY_MS * Math.pow(BACKOFF_FACTOR, Math.max(0, attemptNumber - 1));
   return Math.min(delay, MAX_DELAY_MS);
+}
+
+/** Reads at most `limit` bytes of a response body and cancels the rest, so a hostile receiver cannot make the worker buffer an unbounded error body. */
+async function readBounded(response: Response, limit: number): Promise<string> {
+  const reader = response.body?.getReader();
+  if (!reader) return "";
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (total < limit) {
+      const { done, value } = await reader.read();
+      if (done || !value) break;
+      chunks.push(value);
+      total += value.byteLength;
+    }
+  } catch {
+    /* a body read error is not worth failing the bookkeeping over */
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+  return Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8").slice(0, limit);
 }
 
 export const webhookDeliverTask = task({
@@ -52,6 +74,21 @@ export const webhookDeliverTask = task({
       return;
     }
 
+    // Re-validate the URL at delivery time, not only at registration: a hostname's records can be
+    // changed (DNS rebinding) between the two. This re-resolves and re-classifies right before the
+    // connect, narrowing the window to the resolution itself. Redirects are never followed below.
+    try {
+      await assertDeliverableUrl(endpoint.url);
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      await prisma.webhookDelivery.update({
+        where: { id: delivery.id },
+        data: { status: WebhookDeliveryStatus.FAILED, attempts: delivery.attempts + 1, lastError: `Endpoint URL rejected at delivery time: ${reason}`.slice(0, 500) },
+      });
+      log.warn({ deliveryId: delivery.id }, "webhook-deliver: endpoint URL failed re-validation; delivery marked FAILED");
+      return;
+    }
+
     const rawBody = JSON.stringify(delivery.payload);
     const timestampSeconds = Math.floor(Date.now() / 1000);
     const signature = signWebhookPayload(endpoint.secret, rawBody, timestampSeconds);
@@ -69,6 +106,9 @@ export const webhookDeliverTask = task({
           "user-agent": "agent-chat-webhooks/1",
         },
         body: rawBody,
+        // A receiver has no legitimate reason to redirect; following one would let a public URL
+        // bounce the signed POST (downgraded to GET on 302) at an internal address.
+        redirect: "manual",
         signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
       });
     } catch (err) {
@@ -87,8 +127,8 @@ export const webhookDeliverTask = task({
 
     let lastError: string;
     if (response) {
-      const bodyText = await response.text().catch(() => "");
-      lastError = `${response.status} ${bodyText.slice(0, RESPONSE_BODY_SNIPPET_LENGTH)}`.trim();
+      const bodyText = await readBounded(response, RESPONSE_BODY_SNIPPET_LENGTH);
+      lastError = `${response.status}${response.status >= 300 && response.status < 400 ? " (redirects are not followed)" : ""} ${bodyText}`.trim();
     } else {
       lastError = networkError instanceof Error ? networkError.message : String(networkError);
     }

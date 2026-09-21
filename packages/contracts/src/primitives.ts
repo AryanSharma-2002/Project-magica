@@ -20,7 +20,7 @@ export const HttpsUrl = z
   .string()
   .url()
   .max(2048)
-  .refine((u) => u.startsWith("https://") || u.startsWith("http://"), "Only http(s) URLs are allowed");
+  .refine((u) => u.startsWith("https://"), "Only https URLs are allowed");
 export type HttpsUrl = z.infer<typeof HttpsUrl>;
 
 /** Free-form but bounded JSON value for provider-neutral payloads (JSONB). */

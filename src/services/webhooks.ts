@@ -12,6 +12,10 @@ import { prisma, isUniqueViolation, Prisma } from "@/lib/db";
 import { errors } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { assertDeliverableUrl } from "@/lib/webhooks/url-guard";
+import { assertChatMutationRateLimit } from "@/lib/rate-limit";
+
+/** Per-user cap: every event fans out to every subscribed endpoint, so this bounds the amplification one account can cause. */
+export const MAX_WEBHOOK_ENDPOINTS_PER_USER = 10;
 import type { WebhookEndpoint as DbWebhookEndpoint } from "@/generated/prisma/client";
 
 /**
@@ -34,7 +38,12 @@ function serializeEndpoint(row: DbWebhookEndpoint, opts: { includeSecret: boolea
 
 /** Returns the endpoint WITH its plaintext secret - the only response that ever includes it. */
 export async function createEndpoint(userId: string, body: CreateWebhookRequest): Promise<WebhookEndpointContract> {
+  await assertChatMutationRateLimit(userId);
   await assertDeliverableUrl(body.url);
+  const existing = await prisma.webhookEndpoint.count({ where: { userId } });
+  if (existing >= MAX_WEBHOOK_ENDPOINTS_PER_USER) {
+    throw errors.validation(`At most ${MAX_WEBHOOK_ENDPOINTS_PER_USER} webhook endpoints per account`, { reason: "too_many_endpoints", max: MAX_WEBHOOK_ENDPOINTS_PER_USER });
+  }
 
   const secret = `whsec_${randomBytes(32).toString("base64url")}`;
   const row = await prisma.webhookEndpoint.create({

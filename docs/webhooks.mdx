@@ -15,7 +15,7 @@ curl -X POST "$BASE/api/v1/webhooks" \
 
 The response is the endpoint plus a `secret` (`whsec_…`). **It is returned only once.** Store it; it signs every delivery to that endpoint. `GET /webhooks` lists your endpoints without secrets and `DELETE /webhooks/{endpointId}` removes one. Both a Clerk session and an API key are accepted.
 
-Endpoint URLs must be `https` and must not point at loopback, private, link-local or metadata addresses, including hostnames that resolve to them. (A development build relaxes this so a local receiver works.)
+Endpoint URLs must be `https` and must not point at loopback, private, link-local, CGNAT, multicast or metadata addresses in any IPv4 or IPv6 spelling, including hostnames that resolve to them. The check runs again right before every delivery, and redirects are never followed. An account can register at most 10 endpoints. (A development build additionally accepts `http` to a loopback host so a local receiver works.)
 
 ## Events
 
