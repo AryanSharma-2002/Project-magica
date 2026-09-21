@@ -65,6 +65,38 @@
       }
     },
     "schemas": {
+      "JsonValue": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "number"
+          },
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "string",
+            "nullable": true,
+            "enum": [
+              null
+            ]
+          },
+          {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JsonValue"
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/JsonValue"
+            }
+          }
+        ]
+      },
       "ContentBlock": {
         "oneOf": [
           {
@@ -153,7 +185,7 @@
                 "maxLength": 64
               },
               "input": {
-                "$ref": "#/definitions/__schema0"
+                "$ref": "#/components/schemas/JsonValue"
               }
             },
             "required": [
@@ -198,7 +230,7 @@
               "output": {
                 "allOf": [
                   {
-                    "$ref": "#/definitions/__schema0"
+                    "$ref": "#/components/schemas/JsonValue"
                   }
                 ]
               },
@@ -480,41 +512,7 @@
             ],
             "additionalProperties": false
           }
-        ],
-        "definitions": {
-          "__schema0": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "number"
-              },
-              {
-                "type": "boolean"
-              },
-              {
-                "type": "string",
-                "nullable": true,
-                "enum": [
-                  null
-                ]
-              },
-              {
-                "type": "array",
-                "items": {
-                  "$ref": "#/definitions/__schema0"
-                }
-              },
-              {
-                "type": "object",
-                "additionalProperties": {
-                  "$ref": "#/definitions/__schema0"
-                }
-              }
-            ]
-          }
-        }
+        ]
       },
       "SafeError": {
         "type": "object",
@@ -4459,7 +4457,7 @@
                                       "maxLength": 64
                                     },
                                     "input": {
-                                      "$ref": "#/definitions/__schema0"
+                                      "$ref": "#/components/schemas/JsonValue"
                                     }
                                   },
                                   "required": [
@@ -4504,7 +4502,7 @@
                                     "output": {
                                       "allOf": [
                                         {
-                                          "$ref": "#/definitions/__schema0"
+                                          "$ref": "#/components/schemas/JsonValue"
                                         }
                                       ]
                                     },
@@ -4954,41 +4952,7 @@
                     "items",
                     "nextCursor"
                   ],
-                  "additionalProperties": false,
-                  "definitions": {
-                    "__schema0": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "nullable": true,
-                          "enum": [
-                            null
-                          ]
-                        },
-                        {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        }
-                      ]
-                    }
-                  }
+                  "additionalProperties": false
                 }
               }
             }
@@ -6041,13 +6005,13 @@
                             ]
                           },
                           "input": {
-                            "$ref": "#/definitions/__schema0"
+                            "$ref": "#/components/schemas/JsonValue"
                           },
                           "output": {
                             "nullable": true,
                             "allOf": [
                               {
-                                "$ref": "#/definitions/__schema0"
+                                "$ref": "#/components/schemas/JsonValue"
                               }
                             ]
                           },
@@ -6225,7 +6189,7 @@
                                   "maxLength": 128
                                 },
                                 "input": {
-                                  "$ref": "#/definitions/__schema0"
+                                  "$ref": "#/components/schemas/JsonValue"
                                 },
                                 "microcreditsEstimated": {
                                   "type": "integer",
@@ -6610,41 +6574,7 @@
                     "updatedAt",
                     "realtime"
                   ],
-                  "additionalProperties": false,
-                  "definitions": {
-                    "__schema0": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "nullable": true,
-                          "enum": [
-                            null
-                          ]
-                        },
-                        {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        }
-                      ]
-                    }
-                  }
+                  "additionalProperties": false
                 }
               }
             }
@@ -7206,13 +7136,13 @@
                             ]
                           },
                           "input": {
-                            "$ref": "#/definitions/__schema0"
+                            "$ref": "#/components/schemas/JsonValue"
                           },
                           "output": {
                             "nullable": true,
                             "allOf": [
                               {
-                                "$ref": "#/definitions/__schema0"
+                                "$ref": "#/components/schemas/JsonValue"
                               }
                             ]
                           },
@@ -7390,7 +7320,7 @@
                                   "maxLength": 128
                                 },
                                 "input": {
-                                  "$ref": "#/definitions/__schema0"
+                                  "$ref": "#/components/schemas/JsonValue"
                                 },
                                 "microcreditsEstimated": {
                                   "type": "integer",
@@ -7743,41 +7673,7 @@
                     "createdAt",
                     "updatedAt"
                   ],
-                  "additionalProperties": false,
-                  "definitions": {
-                    "__schema0": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "nullable": true,
-                          "enum": [
-                            null
-                          ]
-                        },
-                        {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        }
-                      ]
-                    }
-                  }
+                  "additionalProperties": false
                 }
               }
             }
@@ -8722,7 +8618,7 @@
                               "maxLength": 128
                             },
                             "input": {
-                              "$ref": "#/definitions/__schema0"
+                              "$ref": "#/components/schemas/JsonValue"
                             },
                             "microcreditsEstimated": {
                               "type": "integer",
@@ -8999,41 +8895,7 @@
                     "resolvedAt",
                     "createdAt"
                   ],
-                  "additionalProperties": false,
-                  "definitions": {
-                    "__schema0": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "nullable": true,
-                          "enum": [
-                            null
-                          ]
-                        },
-                        {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        }
-                      ]
-                    }
-                  }
+                  "additionalProperties": false
                 }
               }
             }
@@ -13946,46 +13808,12 @@
                 "type": "object",
                 "properties": {
                   "input": {
-                    "$ref": "#/definitions/__schema0"
+                    "$ref": "#/components/schemas/JsonValue"
                   }
                 },
                 "required": [
                   "input"
-                ],
-                "definitions": {
-                  "__schema0": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": "number"
-                      },
-                      {
-                        "type": "boolean"
-                      },
-                      {
-                        "type": "string",
-                        "nullable": true,
-                        "enum": [
-                          null
-                        ]
-                      },
-                      {
-                        "type": "array",
-                        "items": {
-                          "$ref": "#/definitions/__schema0"
-                        }
-                      },
-                      {
-                        "type": "object",
-                        "additionalProperties": {
-                          "$ref": "#/definitions/__schema0"
-                        }
-                      }
-                    ]
-                  }
-                }
+                ]
               }
             }
           }
@@ -14427,13 +14255,13 @@
                       ]
                     },
                     "input": {
-                      "$ref": "#/definitions/__schema0"
+                      "$ref": "#/components/schemas/JsonValue"
                     },
                     "output": {
                       "nullable": true,
                       "allOf": [
                         {
-                          "$ref": "#/definitions/__schema0"
+                          "$ref": "#/components/schemas/JsonValue"
                         }
                       ]
                     },
@@ -14542,41 +14370,7 @@
                     "durationMs",
                     "createdAt"
                   ],
-                  "additionalProperties": false,
-                  "definitions": {
-                    "__schema0": {
-                      "anyOf": [
-                        {
-                          "type": "string"
-                        },
-                        {
-                          "type": "number"
-                        },
-                        {
-                          "type": "boolean"
-                        },
-                        {
-                          "type": "string",
-                          "nullable": true,
-                          "enum": [
-                            null
-                          ]
-                        },
-                        {
-                          "type": "array",
-                          "items": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        },
-                        {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/definitions/__schema0"
-                          }
-                        }
-                      ]
-                    }
-                  }
+                  "additionalProperties": false
                 }
               }
             }

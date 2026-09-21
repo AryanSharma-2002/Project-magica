@@ -20,7 +20,7 @@
     "db:studio": "prisma studio",
     "trigger:dev": "trigger dev",
     "trigger:deploy": "trigger deploy",
-    "docs:dev": "cd docs && mintlify dev",
+    "docs:dev": "cd docs && npx mint dev",
     "docs:openapi": "tsx scripts/generate-openapi.ts",
     "acceptance": "tsx scripts/acceptance.ts"
   },

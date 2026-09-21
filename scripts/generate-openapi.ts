@@ -53,10 +53,49 @@ const ops: Op[] = [
   { method: "delete", path: "/webhooks/{endpointId}", summary: "Delete webhook endpoint", tag: "Webhooks", auth: "any", params: ["endpointId"], status: 204 },
 ];
 
+/**
+ * Recursive contracts (the bounded `JsonValue` inside content blocks and tool payloads) come out of
+ * Zod as a JSON-Schema `definitions` block with `#/definitions/__schemaN` refs. OpenAPI 3.0 has no
+ * `definitions`, and Mintlify's validator rejects them, so every definition is hoisted into
+ * `components.schemas` under a stable name and the refs are rewritten. Identical definitions share
+ * one component.
+ */
+const hoisted = new Map<string, unknown>(); // component name -> schema
+const hoistedByContent = new Map<string, string>(); // JSON -> component name
+
+function hoistDefinitions(json: Record<string, unknown>): Record<string, unknown> {
+  const defs = json["definitions"] as Record<string, unknown> | undefined;
+  if (!defs) return json;
+  delete json["definitions"];
+  const renames = new Map<string, string>();
+  for (const [key, def] of Object.entries(defs)) {
+    const content = JSON.stringify(def);
+    let name = hoistedByContent.get(content);
+    if (!name) {
+      // The only recursive contract today is JsonValue (packages/contracts/src/primitives.ts); a second
+      // distinct recursive shape would get a numbered shared name.
+      name = hoistedByContent.size === 0 ? "JsonValue" : `Shared${hoistedByContent.size}`;
+      hoistedByContent.set(content, name);
+      hoisted.set(name, def);
+    }
+    renames.set(`#/definitions/${key}`, `#/components/schemas/${name}`);
+  }
+  let text = JSON.stringify(json);
+  for (const [from, to] of renames) text = text.split(`"${from}"`).join(`"${to}"`);
+  const rewritten = JSON.parse(text) as Record<string, unknown>;
+  // A hoisted definition may itself contain refs to its old name.
+  for (const [name, def] of hoisted) {
+    let defText = JSON.stringify(def);
+    for (const [from, to] of renames) defText = defText.split(`"${from}"`).join(`"${to}"`);
+    hoisted.set(name, JSON.parse(defText));
+  }
+  return rewritten;
+}
+
 function schema(s: z.ZodType, io: "input" | "output") {
   const json = z.toJSONSchema(s, { target: "openapi-3.0", io, unrepresentable: "any" }) as Record<string, unknown>;
   delete json["$schema"];
-  return json;
+  return hoistDefinitions(json);
 }
 
 function queryParams(q: z.ZodType) {
@@ -112,6 +151,7 @@ const doc = {
       apiKey: { type: "http", scheme: "bearer", description: "API key `ak_live_…` (public API)." },
     },
     schemas: {
+      ...Object.fromEntries(hoisted),
       ContentBlock: schema(c.ContentBlock, "output"),
       SafeError: schema(c.SafeError, "output"),
       WebhookEvent: schema(c.WebhookEvent, "output"),
