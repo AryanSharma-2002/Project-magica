@@ -128,6 +128,7 @@ pnpm docs:dev         # runs `mintlify dev` inside docs/; needs the Mintlify CLI
 
 - `pnpm test:e2e` (frontend): no Playwright config exists; `e2e/README.md` holds the plan only.
 - Public API routes and outbound webhooks: schema and doc stubs only.
+- Transloadit Community (free) plan: uploads are re-encoded and watermarked with a "Created with Transloadit" badge, even the `:original` files (verified 2026-09-21: a 1024x768 PNG came back palettised with the badge top-left). Every uploaded image the chat shows or hands to a Magica tool carries it until the account is on a paid plan or uploads bypass Transloadit.
 - Transloadit `notify_url` on localhost: Transloadit cannot call `http://localhost:3001/...`, so a file uploaded through the browser stays `processing` locally. Either expose the API (for example `cloudflared tunnel --url http://localhost:3001`, then set `PUBLIC_API_BASE_URL` to the tunnel URL and restart) or use `pnpm acceptance`, which replays the signed Assembly Status to the notify route itself (section 12).
 
 ## 11. Troubleshooting
