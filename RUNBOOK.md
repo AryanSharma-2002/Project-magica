@@ -139,7 +139,7 @@ npx vercel deploy --prod --yes                           # API; vercel.json pins
 
 Frontend (in `../agent-chat-frontend`): `npx vercel link --yes --project agent-chat-frontend`, set `NEXT_PUBLIC_API_URL` (the API alias above), the Clerk keys, `NEXT_PUBLIC_CLERK_SIGN_IN_URL`/`SIGN_UP_URL`, `NEXT_PUBLIC_TRIGGER_API_URL`, `ENABLE_EXPERIMENTAL_COREPACK=1`, then `npx vercel deploy --prod --yes`. Then set the backend's `FRONTEND_ORIGIN` to the frontend alias and redeploy the API (env changes need a redeploy). The backend's `TRIGGER_SECRET_KEY` on Vercel must be the **prod** key from the Trigger dashboard, not the dev one. The current prod key (`vercel-backend-prod`, created 2026-09-21) expires on 20 Dec 2026; create a new one in the dashboard, set it with `vercel env add`, and redeploy before then.
 
-Docs: `OPENAPI_BASE_URL=https://agent-chat-backend-tan.vercel.app pnpm docs:openapi`, then `docs/` to Mintlify.
+Docs: `OPENAPI_BASE_URL=https://agent-chat-backend-tan.vercel.app pnpm docs:openapi`, then `docs/` to Mintlify. Hosted at https://galaxy-project.mintlify.site (Mintlify project `galaxy-project`, set up 2026-09-21); the frontend's `NEXT_PUBLIC_DOCS_URL` points there.
 
 ## 9b. Reviewer access
 
@@ -161,11 +161,11 @@ pnpm exec tsx scripts/provision-s3.ts                       # creates agent-chat
 pnpm exec tsx scripts/provision-transloadit-credentials.ts  # registers the bucket with Transloadit as "agent-chat-s3"
 ```
 
-`provision-transloadit-credentials.ts` needs a Transloadit auth key whose scope covers Template Credentials; a key limited to Assemblies gets `403 INSUFFICIENT_AUTH_SCOPE`. Alternative: create them by hand in the Transloadit console (Template Credentials -> Amazon S3, name `agent-chat-s3`, the bucket, its region, the IAM key pair). **Only after they exist** set `TRANSLOADIT_STORE_CREDENTIALS=agent-chat-s3` (`.env`, Vercel) and redeploy the API: a name Transloadit does not know fails every upload Assembly.
+`provision-transloadit-credentials.ts` needs a Transloadit auth key with **Full API access**; a key limited to `assemblies, assembly_notifications:write` gets `403 INSUFFICIENT_AUTH_SCOPE`. On 2026-09-21 the backend signing key (`VNn4H99H…`) was widened for this one run: narrow it back to the two Assembly scopes afterwards (Credentials -> Actions -> Edit), or run the script with a separate full-access key (`TRANSLOADIT_KEY`/`TRANSLOADIT_SECRET` overrides). Smart CDN keys cannot be used: the console will not reveal their secret. Alternative: create the credentials by hand in the console (Credentials -> Add new Credential -> Amazon S3, name `agent-chat-s3`, the bucket, its region, the IAM key pair). **Only after they exist** set `TRANSLOADIT_STORE_CREDENTIALS=agent-chat-s3` (`.env`, Vercel) and redeploy the API: a name Transloadit does not know fails every upload Assembly.
 
 Verify: `PUBLIC_API_BASE_URL=<api> pnpm acceptance --only tool_api` must report an asset URL on the bucket host, and `curl -I <that url>` returns 200 with the immutable cache header; once the Transloadit credentials exist, an upload's `url` must be under `uploads/`.
 
-State on 2026-09-21: bucket `agent-chat-media-acb26644` (us-east-1) provisioned and generated-asset storage live on Trigger prod; upload storage waits on the Transloadit credentials above. Afterwards rotate the IAM access key if it was ever shared in plain text, and replace AmazonS3FullAccess with `s3:PutObject` + `s3:GetObject` on `arn:aws:s3:::agent-chat-media-acb26644/*`.
+State on 2026-09-21: bucket `agent-chat-media-acb26644` (us-east-1) provisioned; Template Credentials `agent-chat-s3` created; both paths verified against production with `pnpm acceptance --only tool_api` (upload at `uploads/<userId>/<nonce>/acceptance-image.png`, crop output at `generated/<userId>/<invocationId>/0.png`, both anonymous 200). Follow-ups: rotate the IAM access key (it was shared in plain text during setup), replace AmazonS3FullAccess with `s3:PutObject` + `s3:GetObject` on `arn:aws:s3:::agent-chat-media-acb26644/*`, narrow the Transloadit signing key back to Assembly scopes.
 
 ## 10. Not wired yet
 

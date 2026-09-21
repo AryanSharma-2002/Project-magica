@@ -36,7 +36,7 @@ Live: API `https://agent-chat-backend-tan.vercel.app` (health at `/api/v1/health
 
 - API: Vercel (root of this repo). Set all variables from `.env.example`.
 - Tasks: `pnpm db:generate && pnpm trigger:deploy` (the generated Prisma client is gitignored; `agent-skills/` is bundled via `additionalFiles`; project ref via `TRIGGER_PROJECT_REF`).
-- Docs: `docs/` → Mintlify.
+- Docs: `docs/` → Mintlify, hosted at https://galaxy-project.mintlify.site.
 
 ## Architecture overview
 
