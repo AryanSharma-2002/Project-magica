@@ -2,13 +2,16 @@ import type { ContentBlock, JsonValue, SafeError, ToolInvocationStatus } from "@
 import { AppError, errors } from "@/lib/errors";
 import type { LlmToolCall } from "@/agent/llm/types";
 import type { ToolRegistry } from "@/agent/tools/registry";
-import type { AnyToolDefinition, ToolContext, ToolEffect } from "@/agent/tools/types";
+import { providerChargeFromError, type AnyToolDefinition, type ToolContext, type ToolEffect } from "@/agent/tools/types";
 import { liveToolState } from "./blocks";
 import type { RunDeps, RunRecord } from "./ports";
 
 // ---------------------------------------------------------------------------
 // Small pure helpers
 // ---------------------------------------------------------------------------
+
+/** Consecutive execution failures of ONE tool (across turns of a run) before the run stops. */
+export const MAX_CONSECUTIVE_TOOL_FAILURES = 2;
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -182,6 +185,10 @@ export type ToolBatchArgs = {
   isFirstBatch: boolean;
   /** Consecutive-malformed-call counter per tool name; persists across turns of the same run. */
   malformedStreak: Map<string, number>;
+  /** Consecutive EXECUTION-failure counter per tool name; persists across turns of the same run.
+   * Stops the run at MAX_CONSECUTIVE_TOOL_FAILURES so a model cannot retry a failing paid tool
+   * until maxTurnsPerRun with the provider billing every attempt (seen live 2026-09-21). */
+  failureStreak: Map<string, number>;
   /** In-run cache of (skillTool, args) -> validated output, for load_skill/read_skill_asset dedupe. */
   skillCache: Map<string, unknown>;
   now: () => Date;
@@ -442,6 +449,28 @@ export async function processToolBatch(ctx: ToolBatchArgs): Promise<ToolBatchOut
     }
   }
 
+  // ---- consecutive execution-failure guard (per tool name, across turns of this run) ----
+  // Only real execution outcomes count: cancelled/declined/malformed calls never reach this list.
+  for (const item of readyForExecution) {
+    const result = (resultsByInvocationId.get(item.invocationId) ?? []).find((b) => b.type === "tool_result");
+    if (!result || result.type !== "tool_result") continue;
+    if (result.status === "failed") {
+      const streak = (ctx.failureStreak.get(item.tool.name) ?? 0) + 1;
+      ctx.failureStreak.set(item.tool.name, streak);
+      if (streak >= MAX_CONSECUTIVE_TOOL_FAILURES && !stopReason) {
+        stopReason = {
+          status: "failed",
+          error: new AppError("provider_error", `${item.tool.label} failed ${streak} times in a row, so this turn stopped to avoid further charges. Send a new message to try again.`, {
+            retryable: false,
+            details: { toolName: item.tool.name, consecutiveFailures: streak },
+          }).toSafe(),
+        };
+      }
+    } else if (result.status === "completed") {
+      ctx.failureStreak.set(item.tool.name, 0);
+    }
+  }
+
   // ---- final append pass: tool_result (and any asset blocks) in ORIGINAL CALL ORDER ----
   for (const outcome of pending) {
     if (outcome.kind === "immediate") {
@@ -535,9 +564,25 @@ async function executeOne(args: {
     return [...assetBlocks, resultBlock];
   } catch (err) {
     const appErr = AppError.from(err);
-    await deps.credits.releaseInvocation({ userId: run.userId, runId: run.id, invocationId: item.invocationId, estimated: item.estimate }).catch(() => {});
+    const safe = appErr.toSafe();
+    // The provider may have completed and billed the job before we failed (unparseable output):
+    // then the charge is real and must be settled, not released (ARCHITECTURE.md §5.3).
+    const settled = providerChargeFromError(safe);
+    const charged = settled.microcreditsCharged;
+    if (charged > 0) {
+      await deps.credits.settleInvocation({ userId: run.userId, runId: run.id, invocationId: item.invocationId, estimated: item.estimate, charged }).catch(() => {});
+    } else {
+      await deps.credits.releaseInvocation({ userId: run.userId, runId: run.id, invocationId: item.invocationId, estimated: item.estimate }).catch(() => {});
+    }
     const finishedAt = now();
-    await deps.store.updateInvocation(item.invocationId, { status: "failed", error: appErr.toSafe(), finishedAt, durationMs: finishedAt.getTime() - startedAt.getTime() });
+    await deps.store.updateInvocation(item.invocationId, {
+      status: "failed",
+      error: safe,
+      finishedAt,
+      durationMs: finishedAt.getTime() - startedAt.getTime(),
+      ...(charged > 0 ? { microcreditsCharged: charged } : {}),
+      ...(settled.providerRunId ? { providerRunId: settled.providerRunId } : {}),
+    });
     deps.realtime.metadata({
       tools: {
         [item.call.id]: liveToolState({
@@ -547,10 +592,11 @@ async function executeOne(args: {
           index: item.toolUseIndex,
           startedAt: startedAt.toISOString(),
           finishedAt: finishedAt.toISOString(),
-          error: appErr.toSafe(),
+          error: safe,
+          ...(charged > 0 ? { microcredits: charged } : {}),
         }),
       },
     });
-    return [{ type: "tool_result", toolCallId: item.call.id, invocationId: item.invocationId, toolName: item.tool.name, status: "failed", error: appErr.toSafe() }];
+    return [{ type: "tool_result", toolCallId: item.call.id, invocationId: item.invocationId, toolName: item.tool.name, status: "failed", error: safe, ...(charged > 0 ? { microcredits: charged } : {}) }];
   }
 }

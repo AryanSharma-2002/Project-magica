@@ -1,6 +1,7 @@
 import type { JsonValue } from "@agent-chat/contracts";
 import type { Logger } from "@/lib/logger";
-import { estimateCredits, findCatalogModel, getCatalog } from "@/agent/providers/magica";
+import { AppError } from "@/lib/errors";
+import { estimateCredits, findCatalogModel, getCatalog, type MagicaRun } from "@/agent/providers/magica";
 
 /**
  * Small helpers shared by the three Magica tool definitions (crop_image, gpt_image_2,
@@ -159,4 +160,25 @@ export function pickNumberField(cost: unknown, ...keys: string[]): number | unde
     if (typeof v === "number") return v;
   }
   return undefined;
+}
+
+/**
+ * Normalizes a COMPLETED provider run's output. If the output cannot be parsed, the job still ran
+ * and Magica still billed `creditUsed`, so the thrown error carries `providerRunId` and
+ * `microcreditsCharged` in `details` for the loop to settle against the reservation
+ * (ARCHITECTURE.md §5.3: `creditUsed` is the settled charge), and it is NOT retryable: retrying a
+ * shape mismatch re-bills the user for the same bug (seen live 2026-09-21, a gpt_image_2 retry chain
+ * that had to be cancelled by hand).
+ */
+export function normalizeSettledOutput<T>(run: MagicaRun, providerRunId: string, normalize: (raw: unknown) => T): T {
+  try {
+    return normalize(run.output);
+  } catch (err) {
+    const cause = AppError.from(err, { code: "provider_error" });
+    throw new AppError("provider_error", cause.message, {
+      retryable: false,
+      details: { ...(cause.details ?? {}), providerRunId, microcreditsCharged: run.creditUsed ?? 0 },
+      cause: err,
+    });
+  }
 }

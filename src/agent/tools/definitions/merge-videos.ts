@@ -2,7 +2,7 @@ import { MergeVideosInput, MergeVideosOutput } from "@agent-chat/contracts";
 import { AppError } from "@/lib/errors";
 import { defineTool } from "../types";
 import { runMagicaJob } from "@/agent/providers/magica";
-import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToSingleUrl, pickNumberField, truncateUrlArraysForDisplay } from "./shared";
+import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToSingleUrl, pickNumberField, truncateUrlArraysForDisplay, normalizeSettledOutput } from "./shared";
 
 const NODE_TYPE = "merge_videos";
 const STATIC_PER_MINUTE = 40_000;
@@ -68,7 +68,7 @@ export const mergeVideosTool = defineTool({
 
   execute: async (input, ctx) => {
     const { run, providerRunId, durationMs } = await runMagicaJob({ nodeType: NODE_TYPE, providerInput: toProviderInput(input), ctx });
-    return { output: normalizeOutput(run.output), providerRunId, microcreditsCharged: run.creditUsed ?? 0, durationMs };
+    return { output: normalizeSettledOutput(run, providerRunId, normalizeOutput), providerRunId, microcreditsCharged: run.creditUsed ?? 0, durationMs };
   },
 
   effects: (output, ctx) => [

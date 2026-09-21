@@ -2,7 +2,7 @@ import { CropImageInput, CropImageOutput } from "@agent-chat/contracts";
 import { AppError } from "@/lib/errors";
 import { defineTool } from "../types";
 import { runMagicaJob } from "@/agent/providers/magica";
-import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToSingleUrl, pickNumberField } from "./shared";
+import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToSingleUrl, pickNumberField, normalizeSettledOutput } from "./shared";
 
 const NODE_TYPE = "crop_image";
 const STATIC_MICROCREDITS = 5_000;
@@ -74,7 +74,7 @@ export const cropImageTool = defineTool({
 
   execute: async (input, ctx) => {
     const { run, providerRunId, durationMs } = await runMagicaJob({ nodeType: NODE_TYPE, providerInput: toProviderInput(input), ctx });
-    return { output: normalizeOutput(run.output), providerRunId, microcreditsCharged: run.creditUsed ?? 0, durationMs };
+    return { output: normalizeSettledOutput(run, providerRunId, normalizeOutput), providerRunId, microcreditsCharged: run.creditUsed ?? 0, durationMs };
   },
 
   effects: (output, ctx) => [

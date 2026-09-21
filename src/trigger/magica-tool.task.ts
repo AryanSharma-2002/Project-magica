@@ -4,7 +4,7 @@ import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { prisma, Prisma } from "@/lib/db";
 import { toolRegistry } from "@/agent/tools";
-import type { ToolContext } from "@/agent/tools/types";
+import { providerChargeFromError, type ToolContext } from "@/agent/tools/types";
 import { ToolInvocationStatus } from "@/generated/prisma/enums";
 
 /**
@@ -113,8 +113,20 @@ export const magicaToolTask = task({
       const app = AppError.from(err);
       const safeError = app.toSafe();
       const status = app.code === "cancelled" ? ToolInvocationStatus.CANCELLED : ToolInvocationStatus.FAILED;
+      // A failure AFTER the provider completed and billed (unparseable output) still carries the
+      // settled charge; persist it so the row matches Magica's ledger and the parent can settle.
+      const settled = providerChargeFromError(safeError);
       await prisma.toolInvocation
-        .update({ where: { id: invocation.id }, data: { status, error: safeError as unknown as Prisma.InputJsonValue, finishedAt: new Date() } })
+        .update({
+          where: { id: invocation.id },
+          data: {
+            status,
+            error: safeError as unknown as Prisma.InputJsonValue,
+            finishedAt: new Date(),
+            ...(settled.microcreditsCharged > 0 ? { microcreditsCharged: BigInt(settled.microcreditsCharged) } : {}),
+            ...(settled.providerRunId ? { providerRunId: settled.providerRunId } : {}),
+          },
+        })
         .catch((persistErr: unknown) => log.error({ err: persistErr }, "magica-tool: failed to persist failure state"));
       return { ok: false, error: safeError };
     }

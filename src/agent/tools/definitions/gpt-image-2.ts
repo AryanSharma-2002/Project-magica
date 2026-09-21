@@ -4,7 +4,7 @@ import { AppError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { defineTool } from "../types";
 import { catalogFieldsToZod, findCatalogModel, getCatalog, runMagicaJob, type CatalogField } from "@/agent/providers/magica";
-import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToUrlList } from "./shared";
+import { assetExpiresAt, catalogCostFallback, estimateWithFallback, guessMimeType, normalizeToUrlList, normalizeSettledOutput } from "./shared";
 
 const NODE_TYPE = "gpt_image_2";
 const CATALOG_MODEL_ID = "gpt-image-2";
@@ -190,7 +190,7 @@ export const gptImage2Tool = defineTool<z.ZodType<GptImage2Input>, typeof GptIma
       providerInput: toProviderInput(input),
       ctx,
     });
-    return { output: normalizeOutput(run.output), providerRunId, microcreditsCharged: run.creditUsed ?? 0, durationMs };
+    return { output: normalizeSettledOutput(run, providerRunId, normalizeOutput), providerRunId, microcreditsCharged: run.creditUsed ?? 0, durationMs };
   },
 
   effects: (output, ctx) =>

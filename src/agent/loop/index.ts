@@ -183,6 +183,7 @@ async function runLoop(runId: string, deps: RunDeps, helpers: { sleep: Sleep; ra
     if (hashMismatchReasoning.length > 0) publishAssetsAndReasoning(deps.realtime, blocks);
 
     const malformedStreak = new Map<string, number>();
+    const failureStreak = new Map<string, number>();
     let firstBatchDone = false;
 
     for (let turn = 0; turn < deps.limits.maxTurnsPerRun; turn++) {
@@ -236,6 +237,7 @@ async function runLoop(runId: string, deps: RunDeps, helpers: { sleep: Sleep; ra
         attachments: attachmentsForCtx,
         isFirstBatch: !firstBatchDone,
         malformedStreak,
+        failureStreak,
         skillCache,
         now,
       });

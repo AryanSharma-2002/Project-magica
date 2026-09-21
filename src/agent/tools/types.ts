@@ -70,3 +70,18 @@ export type AnyToolDefinition = ToolDefinition<z.ZodType, z.ZodType>;
 export function defineTool<I extends z.ZodType, O extends z.ZodType>(def: ToolDefinition<I, O>): ToolDefinition<I, O> {
   return def;
 }
+
+/**
+ * A tool can fail AFTER the provider has already run and billed the job (e.g. a completed Magica
+ * run whose output we cannot parse). Those errors carry the settled charge in `details` so the
+ * loop settles it against the reservation instead of releasing it (ARCHITECTURE.md §5.3:
+ * `creditUsed` is the settled charge). Anything else reads as "nothing was charged".
+ */
+export function providerChargeFromError(err: { details?: unknown } | null | undefined): { microcreditsCharged: number; providerRunId: string | null } {
+  const details = err?.details;
+  if (!details || typeof details !== "object") return { microcreditsCharged: 0, providerRunId: null };
+  const d = details as Record<string, unknown>;
+  const charged = typeof d.microcreditsCharged === "number" && Number.isFinite(d.microcreditsCharged) && d.microcreditsCharged > 0 ? Math.trunc(d.microcreditsCharged) : 0;
+  const providerRunId = typeof d.providerRunId === "string" && d.providerRunId.length > 0 ? d.providerRunId : null;
+  return { microcreditsCharged: charged, providerRunId };
+}
