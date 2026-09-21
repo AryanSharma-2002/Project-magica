@@ -41,7 +41,16 @@ const ops: Op[] = [
   { method: "get", path: "/credits/balance", summary: "Credit balance", tag: "Credits", auth: "clerk", response: c.BalanceResponse },
   { method: "get", path: "/credits/ledger", summary: "Credit ledger", tag: "Credits", auth: "clerk", query: c.CursorQuery, response: c.ListLedgerResponse },
   { method: "get", path: "/search", summary: "Search chats and messages", tag: "Search", auth: "clerk", query: c.SearchQuery, response: c.SearchResponse },
-  // Phase 2 (not in this build): POST /completions, POST /tools/{name}/run, /webhooks CRUD — see docs/webhooks.mdx.
+  // ---- public API ----
+  { method: "get", path: "/api-keys", summary: "List API keys", description: "Plaintext keys are never returned here; revoked keys carry `revokedAt`.", tag: "API keys", auth: "clerk", response: c.ListApiKeysResponse },
+  { method: "post", path: "/api-keys", summary: "Create API key", description: "Returns the plaintext `key` ONCE. Only its SHA-256 is stored. Requires a Clerk session: a key cannot mint keys.", tag: "API keys", auth: "clerk", body: c.CreateApiKeyRequest, response: c.ApiKey, status: 201 },
+  { method: "delete", path: "/api-keys/{keyId}", summary: "Revoke API key", description: "Idempotent. Requests with a revoked key fail with 401.", tag: "API keys", auth: "clerk", params: ["keyId"], status: 204 },
+  { method: "post", path: "/completions", summary: "Start an agent turn (public API)", description: "Creates a chat (unless `chatId` is given), attaches any `attachmentUrls` as ready library attachments, persists the user turn and dispatches ONE durable run. Poll `statusUrl` or subscribe to webhooks. Send an `Idempotency-Key` header to make retries safe.", tag: "Public API", auth: "apiKey", body: c.PublicCompletionRequest, response: c.PublicCompletionResponse, status: 202, idempotent: true },
+  { method: "post", path: "/tools/{name}/run", summary: "Run a media tool directly (public API)", description: "Standalone Magica tool invocation without a conversation: `crop_image`, `gpt_image_2` or `merge_videos`. The estimate is reserved up front and settled to the actual charge; no approval waitpoint applies.", tag: "Public API", auth: "apiKey", params: ["name"], body: c.PublicToolRunRequest, response: c.PublicToolRunResponse, status: 202 },
+  { method: "get", path: "/tools/runs/{invocationId}", summary: "Get a standalone tool run", tag: "Public API", auth: "any", params: ["invocationId"], response: c.ToolInvocation },
+  { method: "get", path: "/webhooks", summary: "List webhook endpoints", description: "Secrets are never returned here.", tag: "Webhooks", auth: "any", response: c.ListWebhooksResponse },
+  { method: "post", path: "/webhooks", summary: "Create webhook endpoint", description: "Returns the signing `secret` ONCE. URLs must be https and public (no loopback/private/link-local targets).", tag: "Webhooks", auth: "any", body: c.CreateWebhookRequest, response: c.WebhookEndpoint, status: 201 },
+  { method: "delete", path: "/webhooks/{endpointId}", summary: "Delete webhook endpoint", tag: "Webhooks", auth: "any", params: ["endpointId"], status: 204 },
 ];
 
 function schema(s: z.ZodType, io: "input" | "output") {

@@ -1,0 +1,34 @@
+---
+title: API keys
+---
+
+API keys authenticate the public endpoints (`/completions`, `/tools/{name}/run`, `/webhooks`) and anything marked "API key or Clerk session" in the reference. They act on behalf of the account that created them and spend that account's credits.
+
+## Create a key
+
+Keys are created with a **Clerk session**, never with another key:
+
+```bash
+curl -X POST "$BASE/api/v1/api-keys" \
+  -H "Authorization: Bearer <clerk session JWT>" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CI pipeline"}'
+```
+
+```json
+{ "id": "cmu…", "name": "CI pipeline", "prefix": "ak_live_9f2A", "key": "ak_live_9f2A…", "lastUsedAt": null, "revokedAt": null, "createdAt": "2026-09-21T07:00:00.000Z" }
+```
+
+`key` is the plaintext and is **returned once**. Only its SHA-256 is stored; `prefix` is what you will see in listings.
+
+## Use a key
+
+```bash
+curl "$BASE/api/v1/runs/$RUN_ID" -H "Authorization: Bearer ak_live_..."
+```
+
+`lastUsedAt` is updated on every authenticated request.
+
+## List and revoke
+
+`GET /api-keys` lists your keys (including revoked ones, with `revokedAt` set). `DELETE /api-keys/{keyId}` revokes a key immediately; requests with a revoked key fail with `401 unauthorized`. Revoking is idempotent.

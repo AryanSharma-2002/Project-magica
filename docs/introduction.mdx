@@ -18,9 +18,9 @@ The Agent Chat API lets you start and follow **long-running, tool-using agent co
 https://<your-deployment>/api/v1
 ```
 
-## Quick start (public API — planned)
+## Quick start
 
-<Note>The API-key `/completions` endpoint below is Phase 2. In this build, use the Clerk-authenticated `POST /chats/{chatId}/messages`.</Note>
+Create an [API key](/api-keys) once, then start a conversation turn with a single call:
 
 ```bash
 curl -X POST "$BASE/api/v1/completions" \
@@ -30,4 +30,4 @@ curl -X POST "$BASE/api/v1/completions" \
   -d '{"message":"Generate a poster of a lighthouse at dawn, then crop it to a square"}'
 ```
 
-The response is `202 Accepted` with a `runId` and a `statusUrl`. Poll it or register a [webhook](/webhooks).
+The response is `202 Accepted` with the `chatId` (a new chat unless you passed one), the `runId` and a `statusUrl`. Poll it, subscribe to the run's realtime channel, or register a [webhook](/webhooks). Pass `attachmentUrls` (public https URLs) to give the agent images or videos to work on, and `chatId` to continue an existing conversation. Media tools can also be called directly as [standalone tool runs](/tools).

@@ -18,9 +18,11 @@
  *
  * Fixture media (a 1024x768 PNG, two 2-second MP4 clips) is generated with ffmpeg when missing.
  */
-import { createHmac, randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { createServer } from "node:http";
+import type { AddressInfo } from "node:net";
 import path from "node:path";
 import type {
   Attachment,
@@ -31,9 +33,11 @@ import type {
   Page,
   RunStatus,
   SendMessageResponse,
+  ToolInvocation,
   ToolInvocationStatus,
   Waitpoint,
   WaitpointResolution,
+  WebhookEvent,
 } from "@agent-chat/contracts";
 
 // ---------------------------------------------------------------------------
@@ -153,9 +157,9 @@ function ensureMedia(dir: string): { image: MediaFile; clips: MediaFile[] } {
 
 type AssemblyStatus = { ok?: string; error?: string; message?: string; assembly_id: string; assembly_ssl_url: string };
 
-async function uploadFiles(api: Api, chatId: string, files: MediaFile[]): Promise<Attachment[]> {
+async function uploadFiles(api: Api, chatId: string | undefined, files: MediaFile[]): Promise<Attachment[]> {
   const metas = files.map((f, i) => ({ clientId: `acc-${i}-${randomUUID().slice(0, 8)}`, filename: f.filename, mimeType: f.mimeType, sizeBytes: statSync(f.file).size, position: i }));
-  const created = await api.call<CreateAssemblyResponse>("POST", "/attachments/assembly", { chatId, files: metas });
+  const created = await api.call<CreateAssemblyResponse>("POST", "/attachments/assembly", { ...(chatId ? { chatId } : {}), files: metas });
   log(`  assembly params signed; ${created.attachments.length} attachment row(s) pre-created`);
 
   const form = new FormData();
@@ -363,6 +367,336 @@ const SCENARIOS: Scenario[] = [
 ];
 
 // ---------------------------------------------------------------------------
+// Public API scenarios (API keys, /completions, standalone tool runs, webhooks)
+// ---------------------------------------------------------------------------
+
+export const PUBLIC_SCENARIO_KEYS = ["apikey", "tool_api", "webhook"] as const;
+type PublicScenarioKey = (typeof PUBLIC_SCENARIO_KEYS)[number];
+
+const PUBLIC_TITLES: Record<PublicScenarioKey, string> = {
+  apikey: "Public API: mint a key, POST /completions, list, revoke",
+  tool_api: "Public API: standalone crop_image run on an uploaded image",
+  webhook: "Webhooks: local receiver gets signed agent.started/agent.completed",
+};
+
+async function mintApiKey(clerkApi: Api, name: string): Promise<{ id: string; key: string; prefix: string }> {
+  const created = await clerkApi.call<{ id: string; key?: string; prefix: string }>("POST", "/api-keys", { name });
+  if (!created.key) throw new Error("POST /api-keys returned no plaintext key");
+  return { id: created.id, key: created.key, prefix: created.prefix };
+}
+
+async function waitForTerminalRun(api: Api, runId: string, timeoutMs: number): Promise<GetRunResponse> {
+  const started = Date.now();
+  let last = "";
+  for (;;) {
+    const run = await api.call<GetRunResponse>("GET", `/runs/${runId}`);
+    if (run.status !== last) {
+      log(`  status ${run.status}${run.routedModel ? ` (model ${run.routedModel})` : ""}`);
+      last = run.status;
+    }
+    if (TERMINAL.has(run.status)) return run;
+    if (Date.now() - started > timeoutMs) throw new Error(`run ${runId} did not finish within ${Math.round(timeoutMs / 1000)}s`);
+    await sleep(2_000);
+  }
+}
+
+/** Mirrors docs/webhooks.mdx: v1 = HMAC_SHA256(secret, `${t}.${rawBody}`), 300 s tolerance, constant-time compare. */
+function verifyWebhookSignature(secret: string, rawBody: string, header: string, nowSeconds = Math.floor(Date.now() / 1000)): boolean {
+  const parts = Object.fromEntries(header.split(",").map((kv) => kv.split("=") as [string, string]));
+  const t = Number(parts.t);
+  if (!Number.isFinite(t) || Math.abs(nowSeconds - t) > 300 || !parts.v1) return false;
+  const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
+  return expected.length === parts.v1.length && timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
+}
+
+function baseRecord(overrides: Partial<AttemptRecord> & Pick<AttemptRecord, "scenario" | "title">): AttemptRecord {
+  return {
+    attempt: 1,
+    chatId: "-",
+    runId: "-",
+    triggerRunId: "-",
+    routedModel: null,
+    runStatus: "-",
+    runError: null,
+    tools: [],
+    waits: [],
+    assets: [],
+    assistantText: "",
+    realtimeSeen: false,
+    elapsedMs: 0,
+    pass: false,
+    retryable: false,
+    notes: [],
+    ...overrides,
+  };
+}
+
+function statusIs(err: unknown, status: number): boolean {
+  return String(err).includes(`-> ${status}`);
+}
+
+async function scenarioApiKey(apiBase: string, jwt: string): Promise<AttemptRecord> {
+  const started = Date.now();
+  const notes: string[] = [];
+  let pass = true;
+  const clerkApi = new Api(apiBase, jwt);
+  const key = await mintApiKey(clerkApi, `acceptance ${new Date().toISOString()}`);
+  log(`  api key ${key.prefix}… minted`);
+  const keyApi = new Api(apiBase, key.key);
+
+  try {
+    await keyApi.call("POST", "/api-keys", { name: "escalation attempt" });
+    pass = false;
+    notes.push("an API key was allowed to mint another key");
+  } catch (err) {
+    if (!statusIs(err, 401)) {
+      pass = false;
+      notes.push(`key minting a key: expected 401, got ${String(err).slice(0, 80)}`);
+    }
+  }
+
+  const completion = await keyApi.call<{ chatId: string; runId: string; statusUrl: string }>(
+    "POST",
+    "/completions",
+    { message: "Reply with exactly one word: pong" },
+    { "idempotency-key": `acceptance-${randomUUID()}` },
+  );
+  log(`  POST /completions -> run ${completion.runId} in chat ${completion.chatId}`);
+  if (!completion.statusUrl.endsWith(`/api/v1/runs/${completion.runId}`)) {
+    pass = false;
+    notes.push(`unexpected statusUrl ${completion.statusUrl}`);
+  }
+  const run = await waitForTerminalRun(keyApi, completion.runId, 3 * 60_000);
+  if (run.status !== "completed") {
+    pass = false;
+    notes.push(`run ${run.status}${run.error ? ` (${run.error.code})` : ""}`);
+  }
+
+  const listed = await clerkApi.call<{ items: Array<{ id: string; prefix: string; key?: string; lastUsedAt: string | null }> }>("GET", "/api-keys");
+  const mine = listed.items.find((k) => k.id === key.id);
+  if (!mine) {
+    pass = false;
+    notes.push("key missing from GET /api-keys");
+  } else {
+    if (mine.key) {
+      pass = false;
+      notes.push("GET /api-keys leaked a plaintext key");
+    }
+    if (!mine.lastUsedAt) notes.push("lastUsedAt not set after use");
+  }
+
+  await clerkApi.call("DELETE", `/api-keys/${key.id}`);
+  try {
+    await keyApi.call("GET", `/runs/${completion.runId}`);
+    pass = false;
+    notes.push("revoked key still accepted");
+  } catch (err) {
+    if (statusIs(err, 401)) notes.push("revoked key rejected with 401");
+    else {
+      pass = false;
+      notes.push(`revoked key: expected 401, got ${String(err).slice(0, 80)}`);
+    }
+  }
+
+  const messages = await clerkApi.call<Page<Message>>("GET", `/chats/${completion.chatId}/messages?limit=5`);
+  const assistant = messages.items.find((m) => m.role === "assistant");
+  const assistantText = (assistant?.content ?? [])
+    .flatMap((b) => (b.type === "text" ? [b.text] : []))
+    .join(" ")
+    .trim()
+    .slice(0, 300);
+  return baseRecord({
+    scenario: "apikey",
+    title: PUBLIC_TITLES.apikey,
+    chatId: completion.chatId,
+    runId: run.id,
+    triggerRunId: run.triggerRunId ?? "-",
+    routedModel: run.routedModel,
+    runStatus: run.status,
+    runError: run.error ? `${run.error.code}: ${run.error.message}` : null,
+    assistantText,
+    elapsedMs: Date.now() - started,
+    pass,
+    notes,
+  });
+}
+
+async function scenarioToolApi(apiBase: string, jwt: string, media: { image: MediaFile }): Promise<AttemptRecord> {
+  const started = Date.now();
+  const notes: string[] = [];
+  let pass = true;
+  const clerkApi = new Api(apiBase, jwt);
+  const key = await mintApiKey(clerkApi, `acceptance tool ${new Date().toISOString()}`);
+  const keyApi = new Api(apiBase, key.key);
+
+  const [attachment] = await uploadFiles(clerkApi, undefined, [media.image]);
+  const imageUrl = attachment?.url;
+  if (!imageUrl) throw new Error("uploaded attachment has no URL");
+
+  try {
+    await keyApi.call("POST", "/tools/load_skill/run", { input: { name: "image-cropping" } });
+    pass = false;
+    notes.push("load_skill was accepted via the public API");
+  } catch (err) {
+    if (statusIs(err, 404)) notes.push("non-Magica tool rejected with 404");
+    else {
+      pass = false;
+      notes.push(`non-Magica tool: expected 404, got ${String(err).slice(0, 80)}`);
+    }
+  }
+  try {
+    await keyApi.call("POST", "/tools/crop_image/run", { input: { image_url: imageUrl } });
+    pass = false;
+    notes.push("an incomplete crop rectangle was accepted");
+  } catch (err) {
+    if (statusIs(err, 400)) notes.push("malformed input rejected with 400");
+    else {
+      pass = false;
+      notes.push(`malformed input: expected 400, got ${String(err).slice(0, 80)}`);
+    }
+  }
+
+  const accepted = await keyApi.call<{ invocationId: string; status: string; statusUrl: string }>("POST", "/tools/crop_image/run", {
+    input: { image_url: imageUrl, x_percent: 25, y_percent: 25, width_percent: 50, height_percent: 50 },
+  });
+  log(`  POST /tools/crop_image/run -> invocation ${accepted.invocationId} (${accepted.status})`);
+  if (!accepted.statusUrl.endsWith(`/api/v1/tools/runs/${accepted.invocationId}`)) {
+    pass = false;
+    notes.push(`unexpected statusUrl ${accepted.statusUrl}`);
+  }
+
+  const deadline = Date.now() + 8 * 60_000;
+  let invocation: ToolInvocation;
+  let last = "";
+  for (;;) {
+    invocation = await keyApi.call<ToolInvocation>("GET", `/tools/runs/${accepted.invocationId}`);
+    if (invocation.status !== last) {
+      log(`  invocation ${invocation.status}`);
+      last = invocation.status;
+    }
+    if (invocation.status === "completed" || invocation.status === "failed" || invocation.status === "cancelled") break;
+    if (Date.now() > deadline) throw new Error(`tool run ${accepted.invocationId} did not finish in time`);
+    await sleep(2_000);
+  }
+  const outputUrl = firstHttpsUrl(invocation.output);
+  if (invocation.status !== "completed" || !outputUrl) {
+    pass = false;
+    notes.push(`invocation ${invocation.status}${invocation.error ? ` (${invocation.error.code}: ${invocation.error.message})` : ""}`);
+  }
+  if (invocation.status === "completed" && invocation.microcreditsCharged <= 0) {
+    pass = false;
+    notes.push("completed but microcreditsCharged is 0");
+  }
+
+  await clerkApi.call("DELETE", `/api-keys/${key.id}`);
+  return baseRecord({
+    scenario: "tool_api",
+    title: PUBLIC_TITLES.tool_api,
+    runId: accepted.invocationId,
+    runStatus: invocation.status,
+    tools: [
+      {
+        toolName: invocation.toolName,
+        status: invocation.status,
+        estimated: invocation.microcreditsEstimated,
+        charged: invocation.microcreditsCharged,
+        providerRunId: invocation.providerRunId,
+        error: invocation.error ? `${invocation.error.code}: ${invocation.error.message}` : null,
+        outputUrl,
+      },
+    ],
+    assets: outputUrl ? [outputUrl] : [],
+    elapsedMs: Date.now() - started,
+    pass,
+    notes,
+  });
+}
+
+async function scenarioWebhook(apiBase: string, jwt: string): Promise<AttemptRecord> {
+  const started = Date.now();
+  const notes: string[] = [];
+  let pass = true;
+  const received: Array<{ headers: Record<string, string>; body: string }> = [];
+  const server = createServer((req, res) => {
+    let body = "";
+    req.on("data", (chunk: Buffer | string) => (body += chunk.toString()));
+    req.on("end", () => {
+      received.push({ headers: Object.fromEntries(Object.entries(req.headers).map(([k, v]) => [k, Array.isArray(v) ? v.join(",") : String(v ?? "")])), body });
+      res.statusCode = 200;
+      res.end("ok");
+    });
+  });
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", () => resolve()));
+  const port = (server.address() as AddressInfo).port;
+
+  try {
+    const clerkApi = new Api(apiBase, jwt);
+    // http + loopback is only accepted by a development backend (NODE_ENV=development); the guard
+    // rejects it everywhere else, which is what the SSRF rules in ARCHITECTURE.md §9 require.
+    const endpoint = await clerkApi.call<{ id: string; url: string; secret?: string }>("POST", "/webhooks", {
+      url: `http://127.0.0.1:${port}/hook`,
+      events: ["agent.started", "agent.completed", "agent.failed", "tool.completed"],
+    });
+    if (!endpoint.secret) throw new Error("POST /webhooks returned no secret");
+    log(`  endpoint ${endpoint.id} registered for ${endpoint.url}`);
+    const listed = await clerkApi.call<{ items: Array<{ id: string; secret?: string }> }>("GET", "/webhooks");
+    if (listed.items.some((e) => e.secret)) {
+      pass = false;
+      notes.push("GET /webhooks leaked a secret");
+    }
+    try {
+      await clerkApi.call("POST", "/webhooks", { url: "https://169.254.169.254/latest/meta-data", events: ["agent.completed"] });
+      pass = false;
+      notes.push("metadata-address endpoint was accepted");
+    } catch (err) {
+      if (statusIs(err, 400)) notes.push("link-local endpoint rejected with 400");
+      else notes.push(`link-local endpoint: ${String(err).slice(0, 80)}`);
+    }
+
+    const chat = await clerkApi.call<{ id: string }>("POST", "/chats", { title: `acceptance webhook ${new Date().toISOString().slice(0, 16)}` });
+    const turn = await sendAndWait(clerkApi, chat.id, "Reply with exactly one word: pong", [], { approve: true, maxDenials: 0, timeoutMs: 3 * 60_000 });
+
+    const wanted = ["agent.started", "agent.completed"];
+    const deadline = Date.now() + 90_000;
+    const seenTypes = () => new Set(received.map((r) => r.headers["x-agentchat-event"]));
+    while (Date.now() < deadline && !wanted.every((w) => seenTypes().has(w))) await sleep(2_000);
+
+    const events = received.map((r) => {
+      const parsed = JSON.parse(r.body) as WebhookEvent;
+      return { id: parsed.id, type: parsed.type, runId: parsed.data.runId, status: parsed.data.status, signatureValid: verifyWebhookSignature(endpoint.secret!, r.body, r.headers["x-agentchat-signature"] ?? ""), deliveryHeader: r.headers["x-agentchat-delivery"] };
+    });
+    for (const w of wanted) {
+      if (!events.some((e) => e.type === w && e.runId === turn.run.id)) {
+        pass = false;
+        notes.push(`no ${w} event received for run ${turn.run.id}`);
+      }
+    }
+    if (events.some((e) => !e.signatureValid)) {
+      pass = false;
+      notes.push("a delivery carried an invalid signature");
+    }
+    if (events.some((e) => !e.deliveryHeader)) notes.push("a delivery lacked X-AgentChat-Delivery");
+    notes.push(`received ${events.length} event(s): ${events.map((e) => `${e.type}(${e.status})`).join(", ") || "none"}`);
+
+    await clerkApi.call("DELETE", `/webhooks/${endpoint.id}`);
+    return baseRecord({
+      scenario: "webhook",
+      title: PUBLIC_TITLES.webhook,
+      chatId: chat.id,
+      runId: turn.run.id,
+      triggerRunId: turn.run.triggerRunId ?? turn.send.realtime.triggerRunId,
+      routedModel: turn.run.routedModel,
+      runStatus: turn.run.status,
+      elapsedMs: Date.now() - started,
+      pass,
+      notes,
+    });
+  } finally {
+    server.close();
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Evaluation + report
 // ---------------------------------------------------------------------------
 
@@ -524,10 +858,13 @@ async function main(): Promise<void> {
   const out = arg("out", "");
   const mediaDir = arg("media-dir", path.join(process.cwd(), "node_modules", ".cache", "acceptance-media"));
   const scenarios = only.length > 0 ? SCENARIOS.filter((s) => only.includes(s.key)) : SCENARIOS;
-  if (scenarios.length === 0) throw new Error(`No scenarios match --only ${only.join(",")}. Known: ${SCENARIOS.map((s) => s.key).join(", ")}`);
+  const publicScenarios: PublicScenarioKey[] = only.length > 0 ? PUBLIC_SCENARIO_KEYS.filter((k) => only.includes(k)) : [...PUBLIC_SCENARIO_KEYS];
+  if (scenarios.length === 0 && publicScenarios.length === 0) {
+    throw new Error(`No scenarios match --only ${only.join(",")}. Known: ${[...SCENARIOS.map((s) => s.key), ...PUBLIC_SCENARIO_KEYS].join(", ")}`);
+  }
 
   const startedAt = new Date().toISOString();
-  const media = scenarios.some((s) => s.needs) ? ensureMedia(mediaDir) : null;
+  const media = scenarios.some((s) => s.needs) || publicScenarios.includes("tool_api") ? ensureMedia(mediaDir) : null;
   const records: AttemptRecord[] = [];
   let clerkUserId = "";
 
@@ -551,6 +888,22 @@ async function main(): Promise<void> {
       log(`  ${record.pass ? "PASS" : "FAIL"}${record.notes.length ? ` - ${record.notes.join("; ")}` : ""}`);
       if (record.pass || !record.retryable) break;
       if (attempt < attempts) log("  retrying in a fresh chat (model-quality failure)");
+    }
+  }
+
+  for (const key of publicScenarios) {
+    log(`=== ${key} (${PUBLIC_TITLES[key]})`);
+    try {
+      const minted = await mintJwt();
+      clerkUserId = minted.clerkUserId;
+      const record =
+        key === "apikey" ? await scenarioApiKey(apiBase, minted.jwt) : key === "tool_api" ? await scenarioToolApi(apiBase, minted.jwt, media!) : await scenarioWebhook(apiBase, minted.jwt);
+      records.push(record);
+      log(`  ${record.pass ? "PASS" : "FAIL"}${record.notes.length ? ` - ${record.notes.join("; ")}` : ""}`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      records.push(baseRecord({ scenario: key, title: PUBLIC_TITLES[key], pass: false, notes: [message.slice(0, 300)] }));
+      log(`  FAIL - ${message.slice(0, 200)}`);
     }
   }
 

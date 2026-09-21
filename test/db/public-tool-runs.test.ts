@@ -43,9 +43,9 @@ describe("startToolRun", () => {
     await expect(startToolRun(user.id, "load_skill", { input: { name: "image-generation" } })).rejects.toMatchObject({ code: "not_found" });
   });
 
-  it("malformed input is malformed_tool_call", async () => {
+  it("malformed input is a 400 validation_error on this route", async () => {
     const user = await createUser();
-    await expect(startToolRun(user.id, "crop_image", { input: { image_url: "not-a-url" } })).rejects.toMatchObject({ code: "malformed_tool_call" });
+    await expect(startToolRun(user.id, "crop_image", { input: { image_url: "not-a-url" } })).rejects.toMatchObject({ code: "validation_error" });
   });
 
   it("happy path: PENDING invocation with runId null, a RESERVE ledger entry, and dispatches the tool-run task", async () => {

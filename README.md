@@ -26,6 +26,10 @@ Local Postgres: `createdb agent_chat` and `createdb agent_chat_test`. Tests run 
 
 `packages/contracts` is the single source of truth for every request, response, content block, tool and realtime shape. The frontend vendors it (`pnpm contracts:sync` in the frontend repo) and never redefines types.
 
+## Public API and webhooks
+
+Mint an API key with a Clerk session (`POST /api-keys`, plaintext returned once), then drive the agent without the web app: `POST /completions` starts a turn and returns a `statusUrl`; `POST /tools/{name}/run` invokes a Magica tool directly and settles credits without an approval step; `POST /webhooks` registers an https endpoint that receives `X-AgentChat-Signature`-signed `agent.started`, `agent.completed`, `agent.failed` and `tool.completed` events with retries. Reference: `docs/` (Mintlify) and `docs/openapi.json`, both generated from the contracts. Live check: `pnpm acceptance --only apikey,tool_api,webhook`.
+
 ## Deploy
 
 - API: Vercel (root of this repo). Set all variables from `.env.example`.

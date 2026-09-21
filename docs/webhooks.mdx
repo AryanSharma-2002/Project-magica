@@ -1,19 +1,70 @@
 ---
-title: Webhooks (planned)
+title: Webhooks
 ---
 
-<Note>Outbound webhooks and the API-key public endpoints (`/completions`, `/tools/{name}/run`) are specified here but **not implemented in this build** (Phase 2 in PLAN.md).</Note>
+Register an HTTPS endpoint and Agent Chat POSTs a signed JSON event to it whenever a run starts or finishes, or a media tool completes. Deliveries are durable: each one is a row you can reason about, retried with exponential backoff, and deduplicated by event id.
 
-Register an endpoint with `POST /webhooks` (`url`, `events`). The signing `secret` is returned once.
+## Register an endpoint
 
-### Events
-`agent.started`, `agent.completed`, `agent.failed`, `tool.completed`
-
-### Payload
-```json
-{ "id": "evt_…", "type": "agent.completed", "createdAt": "2026-09-19T10:00:00.000Z",
-  "data": { "runId": "run_…", "chatId": "chat_…", "status": "completed" } }
+```bash
+curl -X POST "$BASE/api/v1/webhooks" \
+  -H "Authorization: Bearer ak_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://example.com/agent-chat/hook","events":["agent.completed","agent.failed","tool.completed"]}'
 ```
 
-### Signature
-Header `X-AgentChat-Signature: t=<unix seconds>,v1=<hex>` where `v1 = HMAC_SHA256(secret, "<t>.<raw body>")`. Reject if `|now − t| > 300s` or the digest does not match (constant-time compare). Deliveries retry with exponential backoff; use `id` to deduplicate.
+The response is the endpoint plus a `secret` (`whsec_…`). **It is returned only once.** Store it; it signs every delivery to that endpoint. `GET /webhooks` lists your endpoints without secrets and `DELETE /webhooks/{endpointId}` removes one. Both a Clerk session and an API key are accepted.
+
+Endpoint URLs must be `https` and must not point at loopback, private, link-local or metadata addresses, including hostnames that resolve to them. (A development build relaxes this so a local receiver works.)
+
+## Events
+
+| Type | When | `data.status` |
+|---|---|---|
+| `agent.started` | the run's worker picked it up | `running` |
+| `agent.completed` | the run finished normally, **or was cancelled** | `completed` or `cancelled` |
+| `agent.failed` | the run ended with an error | `failed` |
+| `tool.completed` | a Magica tool invocation completed, inside a run or as a standalone [tool run](/tools) | `completed` |
+
+## Payload
+
+```json
+{
+  "id": "evt_9c1f4c1e-…",
+  "type": "agent.completed",
+  "createdAt": "2026-09-21T07:09:39.000Z",
+  "data": { "runId": "cmuawkiap…", "chatId": "cmuawg1gv…", "status": "completed" }
+}
+```
+
+`tool.completed` adds `toolInvocationId` and `toolName`; for a standalone tool run `runId` and `chatId` are `null`.
+
+## Verify the signature
+
+Every delivery carries:
+
+```
+X-AgentChat-Signature: t=1758438579,v1=5f1e…
+X-AgentChat-Event: agent.completed
+X-AgentChat-Delivery: cmuaw…
+```
+
+`v1` is `HMAC_SHA256(secret, "<t>.<raw request body>")` in hex. Compute it over the exact bytes you received, compare in constant time, and reject anything whose `t` is more than 300 seconds from your clock.
+
+```ts
+import { createHmac, timingSafeEqual } from "node:crypto";
+
+export function verify(secret: string, rawBody: string, header: string, nowSeconds = Math.floor(Date.now() / 1000)): boolean {
+  const parts = Object.fromEntries(header.split(",").map((kv) => kv.split("=") as [string, string]));
+  const t = Number(parts.t);
+  if (!Number.isFinite(t) || Math.abs(nowSeconds - t) > 300 || !parts.v1) return false;
+  const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
+  return expected.length === parts.v1.length && timingSafeEqual(Buffer.from(expected), Buffer.from(parts.v1));
+}
+```
+
+Respond with any `2xx` within 10 seconds. Anything else, or a timeout, counts as a failed attempt.
+
+## Retries and idempotency
+
+A failed attempt is retried up to 6 times with exponential backoff (5 s doubling, capped at 10 minutes, with jitter). After that the delivery is marked failed. The same event can therefore arrive more than once: deduplicate on `id`, or on the `X-AgentChat-Delivery` header for the same delivery.

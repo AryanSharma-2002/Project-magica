@@ -106,6 +106,8 @@ export async function createCompletion(
   const raw = idempotencyKeyHeader?.trim();
 
   let chatId: string;
+  /** Set when THIS call created the chat, so a rejected send can remove it again (no orphan "New chat"). */
+  let createdChatId: string | null = null;
   if (body.chatId) {
     const chat = await prisma.chat.findFirst({ where: { id: body.chatId, userId: principalUserId, deletedAt: null } });
     if (!chat) throw errors.notFound("Chat");
@@ -142,6 +144,7 @@ export async function createCompletion(
     }
     const chat = await createChat(principalUserId, { title: body.message.slice(0, 60) });
     chatId = chat.id;
+    createdChatId = chat.id;
   }
 
   const attachmentIds: string[] = [];
@@ -165,12 +168,22 @@ export async function createCompletion(
     attachmentIds.push(attachment.id);
   }
 
-  const sent = await sendMessage(
-    principalUserId,
-    chatId,
-    { text: body.message, attachmentIds, model: "openrouter/free", planMode: body.planMode },
-    idempotencyKeyHeader,
-  );
+  let sent;
+  try {
+    sent = await sendMessage(
+      principalUserId,
+      chatId,
+      { text: body.message, attachmentIds, model: "openrouter/free", planMode: body.planMode },
+      idempotencyKeyHeader,
+    );
+  } catch (err) {
+    // sendMessage validates (rate limit, admission credits, active run) BEFORE it writes anything,
+    // so on rejection the chat and library attachments created above are the only leftovers.
+    // Both deletes are best-effort: the FK on a message would make chat.delete a no-op failure.
+    if (attachmentIds.length > 0) await prisma.attachment.deleteMany({ where: { id: { in: attachmentIds }, messageId: null } }).catch(() => undefined);
+    if (createdChatId) await prisma.chat.delete({ where: { id: createdChatId } }).catch(() => undefined);
+    throw err;
+  }
 
   return {
     chatId: sent.chatId,
@@ -195,7 +208,17 @@ export async function startToolRun(userId: string, toolName: string, body: Publi
   const tool = toolRegistry.get(toolName);
   if (tool.execution !== "durable_child_task") throw errors.notFound("Tool");
 
-  const parsed = await toolRegistry.parseInput(tool.name, body.input);
+  // `parseInput` throws `malformed_tool_call`, which the repo-wide HTTP mapping treats as a
+  // provider-side failure (502) because inside a run it means the MODEL produced bad arguments.
+  // On this route the arguments came from the HTTP caller, so it is a plain 400 validation error.
+  let parsed: unknown;
+  try {
+    parsed = await toolRegistry.parseInput(tool.name, body.input);
+  } catch (err) {
+    const app = AppError.from(err);
+    if (app.code !== "malformed_tool_call") throw app;
+    throw errors.validation(`Invalid input for tool ${tool.name}`, { toolName: tool.name, issues: (app.details as { issues?: unknown } | undefined)?.issues ?? [] });
+  }
 
   // The public API does NOT run an approval waitpoint (ARCHITECTURE.md §5.3/§7 approval policy is
   // an agent-loop concept: it exists because the MODEL chose to call a paid tool on the user's

@@ -39,6 +39,15 @@
     },
     {
       "name": "Search"
+    },
+    {
+      "name": "API keys"
+    },
+    {
+      "name": "Public API"
+    },
+    {
+      "name": "Webhooks"
     }
   ],
   "components": {
@@ -581,11 +590,13 @@
             "type": "object",
             "properties": {
               "runId": {
+                "nullable": true,
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 64
               },
               "chatId": {
+                "nullable": true,
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 64
@@ -11890,6 +11901,3925 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-keys": {
+      "get": {
+        "summary": "List API keys",
+        "description": "Plaintext keys are never returned here; revoked keys carry `revokedAt`.",
+        "tags": [
+          "API keys"
+        ],
+        "operationId": "getApi-keys",
+        "security": [
+          {
+            "clerkSession": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "prefix": {
+                            "type": "string"
+                          },
+                          "lastUsedAt": {
+                            "nullable": true,
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "revokedAt": {
+                            "nullable": true,
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "key": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "name",
+                          "prefix",
+                          "lastUsedAt",
+                          "revokedAt",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create API key",
+        "description": "Returns the plaintext `key` ONCE. Only its SHA-256 is stored. Requires a Clerk session: a key cannot mint keys.",
+        "tags": [
+          "API keys"
+        ],
+        "operationId": "postApi-keys",
+        "security": [
+          {
+            "clerkSession": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  }
+                },
+                "required": [
+                  "name"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "prefix": {
+                      "type": "string"
+                    },
+                    "lastUsedAt": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "revokedAt": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "key": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "name",
+                    "prefix",
+                    "lastUsedAt",
+                    "revokedAt",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api-keys/{keyId}": {
+      "delete": {
+        "summary": "Revoke API key",
+        "description": "Idempotent. Requests with a revoked key fail with 401.",
+        "tags": [
+          "API keys"
+        ],
+        "operationId": "deleteApi-keysKeyId",
+        "security": [
+          {
+            "clerkSession": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "keyId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/completions": {
+      "post": {
+        "summary": "Start an agent turn (public API)",
+        "description": "Creates a chat (unless `chatId` is given), attaches any `attachmentUrls` as ready library attachments, persists the user turn and dispatches ONE durable run. Poll `statusUrl` or subscribe to webhooks. Send an `Idempotency-Key` header to make retries safe.",
+        "tags": [
+          "Public API"
+        ],
+        "operationId": "postCompletions",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Makes retries safe; the same key returns the original result."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "chatId": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 64
+                  },
+                  "message": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 20000
+                  },
+                  "attachmentUrls": {
+                    "default": [],
+                    "maxItems": 10,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "maxLength": 2048,
+                      "format": "uri"
+                    }
+                  },
+                  "planMode": {
+                    "default": false,
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "message"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "chatId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "runId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "messageId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "assistantMessageId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "statusUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "chatId",
+                    "runId",
+                    "messageId",
+                    "assistantMessageId",
+                    "statusUrl"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/{name}/run": {
+      "post": {
+        "summary": "Run a media tool directly (public API)",
+        "description": "Standalone Magica tool invocation without a conversation: `crop_image`, `gpt_image_2` or `merge_videos`. The estimate is reserved up front and settled to the actual charge; no approval waitpoint applies.",
+        "tags": [
+          "Public API"
+        ],
+        "operationId": "postToolsNameRun",
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "$ref": "#/definitions/__schema0"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "definitions": {
+                  "__schema0": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "boolean"
+                      },
+                      {
+                        "type": "string",
+                        "nullable": true,
+                        "enum": [
+                          null
+                        ]
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "$ref": "#/definitions/__schema0"
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": {
+                          "$ref": "#/definitions/__schema0"
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invocationId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "statusUrl": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "invocationId",
+                    "status",
+                    "statusUrl"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/runs/{invocationId}": {
+      "get": {
+        "summary": "Get a standalone tool run",
+        "tags": [
+          "Public API"
+        ],
+        "operationId": "getToolsRunsInvocationId",
+        "security": [
+          {
+            "clerkSession": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invocationId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "runId": {
+                      "nullable": true,
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "toolCallId": {
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "toolName": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "pending",
+                        "waiting_approval",
+                        "running",
+                        "completed",
+                        "failed",
+                        "cancelled"
+                      ]
+                    },
+                    "input": {
+                      "$ref": "#/definitions/__schema0"
+                    },
+                    "output": {
+                      "nullable": true,
+                      "allOf": [
+                        {
+                          "$ref": "#/definitions/__schema0"
+                        }
+                      ]
+                    },
+                    "error": {
+                      "nullable": true,
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "providerRunId": {
+                      "nullable": true,
+                      "type": "string",
+                      "maxLength": 128
+                    },
+                    "microcreditsEstimated": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "microcreditsCharged": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "startedAt": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "finishedAt": {
+                      "nullable": true,
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "durationMs": {
+                      "nullable": true,
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "runId",
+                    "toolCallId",
+                    "toolName",
+                    "status",
+                    "input",
+                    "output",
+                    "error",
+                    "providerRunId",
+                    "microcreditsEstimated",
+                    "microcreditsCharged",
+                    "startedAt",
+                    "finishedAt",
+                    "durationMs",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false,
+                  "definitions": {
+                    "__schema0": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "boolean"
+                        },
+                        {
+                          "type": "string",
+                          "nullable": true,
+                          "enum": [
+                            null
+                          ]
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/definitions/__schema0"
+                          }
+                        },
+                        {
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/definitions/__schema0"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks": {
+      "get": {
+        "summary": "List webhook endpoints",
+        "description": "Secrets are never returned here.",
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "getWebhooks",
+        "security": [
+          {
+            "clerkSession": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 64
+                          },
+                          "url": {
+                            "type": "string"
+                          },
+                          "events": {
+                            "type": "array",
+                            "items": {
+                              "type": "string",
+                              "enum": [
+                                "agent.started",
+                                "agent.completed",
+                                "agent.failed",
+                                "tool.completed"
+                              ]
+                            }
+                          },
+                          "active": {
+                            "type": "boolean"
+                          },
+                          "createdAt": {
+                            "type": "string",
+                            "format": "date-time",
+                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                          },
+                          "secret": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "url",
+                          "events",
+                          "active",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "items"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create webhook endpoint",
+        "description": "Returns the signing `secret` ONCE. URLs must be https and public (no loopback/private/link-local targets).",
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "postWebhooks",
+        "security": [
+          {
+            "clerkSession": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "events": {
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "agent.started",
+                        "agent.completed",
+                        "agent.failed",
+                        "tool.completed"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "url",
+                  "events"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 64
+                    },
+                    "url": {
+                      "type": "string"
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "enum": [
+                          "agent.started",
+                          "agent.completed",
+                          "agent.failed",
+                          "tool.completed"
+                        ]
+                      }
+                    },
+                    "active": {
+                      "type": "boolean"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+                    },
+                    "secret": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "url",
+                    "events",
+                    "active",
+                    "createdAt"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string",
+                          "enum": [
+                            "validation_error",
+                            "unauthorized",
+                            "forbidden",
+                            "not_found",
+                            "conflict",
+                            "run_active",
+                            "rate_limited",
+                            "insufficient_credits",
+                            "payload_too_large",
+                            "unsupported_media_type",
+                            "provider_unavailable",
+                            "provider_error",
+                            "provider_rate_limited",
+                            "malformed_tool_call",
+                            "empty_response",
+                            "timeout",
+                            "cancelled",
+                            "max_turns_exceeded",
+                            "waitpoint_expired",
+                            "stale_run_recovered",
+                            "internal"
+                          ]
+                        },
+                        "message": {
+                          "type": "string",
+                          "maxLength": 1000
+                        },
+                        "retryable": {
+                          "type": "boolean"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        },
+                        "traceId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message",
+                        "retryable",
+                        "traceId"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "error"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/webhooks/{endpointId}": {
+      "delete": {
+        "summary": "Delete webhook endpoint",
+        "tags": [
+          "Webhooks"
+        ],
+        "operationId": "deleteWebhooksEndpointId",
+        "security": [
+          {
+            "clerkSession": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "endpointId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No content"
           },
           "400": {
             "description": "Error",

@@ -127,7 +127,6 @@ pnpm docs:dev         # runs `mintlify dev` inside docs/; needs the Mintlify CLI
 ## 10. Not wired yet
 
 - `pnpm test:e2e` (frontend): no Playwright config exists; `e2e/README.md` holds the plan only.
-- Public API routes and outbound webhooks: schema and doc stubs only.
 - Transloadit Community (free) plan: uploads are re-encoded and watermarked with a "Created with Transloadit" badge, even the `:original` files (verified 2026-09-21: a 1024x768 PNG came back palettised with the badge top-left). Every uploaded image the chat shows or hands to a Magica tool carries it until the account is on a paid plan or uploads bypass Transloadit.
 - Transloadit `notify_url` on localhost: Transloadit cannot call `http://localhost:3001/...`, so a file uploaded through the browser stays `processing` locally. Either expose the API (for example `cloudflared tunnel --url http://localhost:3001`, then set `PUBLIC_API_BASE_URL` to the tunnel URL and restart) or use `pnpm acceptance`, which replays the signed Assembly Status to the notify route itself (section 12).
 
@@ -158,11 +157,15 @@ pnpm docs:dev         # runs `mintlify dev` inside docs/; needs the Mintlify CLI
 | `gen` | `gpt_image_2` text-to-image, including the approval waitpoint above the credit threshold |
 | `chain` | `gpt_image_2` followed by `crop_image` on the generated URL, in one turn |
 | `deny` | a denied approval cancels the invocation and the run still completes |
+| `apikey` | a Clerk session mints an API key; the key drives `POST /completions` and is rejected once revoked; a key cannot mint keys |
+| `tool_api` | `POST /tools/crop_image/run` on an uploaded image completes and settles credits; non-Magica tools and malformed input are rejected |
+| `webhook` | a local receiver registered through `POST /webhooks` gets signed `agent.started` and `agent.completed` deliveries (the dev worker can reach `127.0.0.1`; a link-local endpoint is rejected) |
 
 ```bash
 pnpm acceptance                                  # all scenarios, report on stdout
 pnpm acceptance --only crop,merge --attempts 3   # subset; retries only model-quality failures
 pnpm acceptance --out ACCEPTANCE.md              # markdown report plus ACCEPTANCE.json
+pnpm acceptance --only apikey,tool_api,webhook   # public API + webhooks only (cheap: one crop)
 ```
 
 It mints a Clerk session JWT through the Clerk Backend API (`CLERK_SECRET_KEY`) for `ACCEPTANCE_CLERK_USER_ID`, or the most recently signed-in user. Fixture media is generated with ffmpeg on first use. It spends real Magica credits: about 5,000 µc per crop and up to a few hundred thousand µc per generated image. `openrouter/free` routes to a different model on every run, so a scenario can fail because the model ignored the instruction; such failures are retried once in a fresh chat, and every attempt is listed in the report with its routed model.

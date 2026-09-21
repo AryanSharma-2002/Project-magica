@@ -1,0 +1,28 @@
+---
+title: Standalone tool runs
+---
+
+The media tools the agent uses (`crop_image`, `gpt_image_2`, `merge_videos`) can be invoked directly, without a conversation. The input schema is the same one the agent sees; `GET /config` returns it as JSON Schema under `tools[].inputSchema`.
+
+```bash
+curl -X POST "$BASE/api/v1/tools/crop_image/run" \
+  -H "Authorization: Bearer ak_live_..." \
+  -H "Content-Type: application/json" \
+  -d '{"input":{"image_url":"https://example.com/photo.png","x_percent":25,"y_percent":25,"width_percent":50,"height_percent":50}}'
+```
+
+The response is `202 Accepted`:
+
+```json
+{ "invocationId": "cmu…", "status": "pending", "statusUrl": "https://<deployment>/api/v1/tools/runs/cmu…" }
+```
+
+Poll `statusUrl` (a `ToolInvocation`: `status`, `output`, `error`, `microcreditsEstimated`, `microcreditsCharged`, `providerRunId`) or subscribe to the `tool.completed` [webhook](/webhooks). Terminal statuses are `completed`, `failed` and `cancelled`; the `output` for `crop_image` is `{ "image_url": … }`, for `gpt_image_2` `{ "images": […] }` and for `merge_videos` `{ "video_url": … }`.
+
+## Credits and approval
+
+The estimated cost is reserved when the run is accepted and settled to the actual charge when it finishes; an insufficient balance is rejected up front with `insufficient_credits`. Standalone runs never pause for approval: the caller asked for the tool explicitly, so the in-chat approval threshold does not apply.
+
+## Errors
+
+Unknown tools and the skill-loader tools return `404 not_found`. Input that fails the schema returns `400 validation_error` with the tool name and the validation issues in `details`. Provider failures surface on the invocation as `error` with `retryable` set honestly.
