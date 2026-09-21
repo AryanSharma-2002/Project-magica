@@ -136,7 +136,7 @@ pnpm db:generate && pnpm trigger:deploy                  # tasks; agent-skills/ 
 npx vercel deploy --prod --yes                           # API; vercel.json pins the Next.js preset, build runs prisma generate first
 ```
 
-Frontend (in `../agent-chat-frontend`): `npx vercel link --yes --project agent-chat-frontend`, set `NEXT_PUBLIC_API_URL` (the API alias above), the Clerk keys, `NEXT_PUBLIC_CLERK_SIGN_IN_URL`/`SIGN_UP_URL`, `NEXT_PUBLIC_TRIGGER_API_URL`, `ENABLE_EXPERIMENTAL_COREPACK=1`, then `npx vercel deploy --prod --yes`. Then set the backend's `FRONTEND_ORIGIN` to the frontend alias and redeploy the API (env changes need a redeploy). The backend's `TRIGGER_SECRET_KEY` on Vercel must be the **prod** key from the Trigger dashboard, not the dev one.
+Frontend (in `../agent-chat-frontend`): `npx vercel link --yes --project agent-chat-frontend`, set `NEXT_PUBLIC_API_URL` (the API alias above), the Clerk keys, `NEXT_PUBLIC_CLERK_SIGN_IN_URL`/`SIGN_UP_URL`, `NEXT_PUBLIC_TRIGGER_API_URL`, `ENABLE_EXPERIMENTAL_COREPACK=1`, then `npx vercel deploy --prod --yes`. Then set the backend's `FRONTEND_ORIGIN` to the frontend alias and redeploy the API (env changes need a redeploy). The backend's `TRIGGER_SECRET_KEY` on Vercel must be the **prod** key from the Trigger dashboard, not the dev one. The current prod key (`vercel-backend-prod`, created 2026-09-21) expires on 20 Dec 2026; create a new one in the dashboard, set it with `vercel env add`, and redeploy before then.
 
 Docs: `OPENAPI_BASE_URL=https://agent-chat-backend-tan.vercel.app pnpm docs:openapi`, then `docs/` to Mintlify.
 
