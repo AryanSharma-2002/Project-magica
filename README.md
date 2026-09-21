@@ -60,5 +60,5 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md). In one paragraph: a REST request valid
 - Move the stale-run sweep to a scheduled task and add run-level metrics (queue latency, tokens/turn, tool p95) to a dashboard.
 - Pre-compute credit estimates with Magica per (quality, size) tier and cache them; show live estimates in the composer before sending.
 - Persist skill bodies per content hash so a retired skill version still resolves for old runs.
-- Store generated assets in object storage (Cloudflare R2 via Transloadit `/s3/store`) by default rather than relying on provider URLs with expiry.
+- Serve stored media through a CDN or custom domain (`S3_PUBLIC_BASE_URL`) and add lifecycle rules for the bucket; the S3 store for uploads and generated assets is in place (RUNBOOK §9c).
 - Playwright coverage of reconnect, duplicate-submit and cancellation races against a seeded backend.

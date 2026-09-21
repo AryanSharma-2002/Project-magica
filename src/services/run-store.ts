@@ -16,6 +16,8 @@ import type {
   RunStore,
 } from "@/agent/loop/ports";
 import type { ToolEffect } from "@/agent/tools/types";
+import { generatedAssetKey, getMediaStore } from "@/lib/storage/s3";
+import { logger } from "@/lib/logger";
 import { prisma, Prisma, mc } from "@/lib/db";
 import { errors } from "@/lib/errors";
 import { releaseAdmission } from "@/lib/credits";
@@ -234,6 +236,27 @@ export function createRunStore(): RunStore {
         const mimeType = asset.mimeType ?? DEFAULT_MIME_BY_KIND[asset.kind] ?? "application/octet-stream";
         const filename = deriveFilename(asset.url, args.invocationId, i);
         const kindDb = AttachmentKindContract.parse(asset.kind).toUpperCase() as "IMAGE" | "VIDEO" | "AUDIO" | "FILE";
+
+        // Durable copy: provider result URLs (Magica) expire, so when S3 storage is configured the
+        // asset is copied to the bucket and the stored URL replaces the provider one (expiry cleared,
+        // source kept in `meta`). Storage trouble must never fail the run: fall back to the provider URL.
+        let url = asset.url;
+        let expiresAt = asset.expiresAt ? new Date(asset.expiresAt) : null;
+        let sizeBytes = 0;
+        let meta: Prisma.InputJsonValue | undefined;
+        const store = getMediaStore();
+        if (store) {
+          try {
+            const stored = await store.putFromUrl({ sourceUrl: asset.url, key: generatedAssetKey({ userId: args.userId, invocationId: args.invocationId, index: i, sourceUrl: asset.url, mimeType }), contentType: mimeType });
+            url = stored.url;
+            sizeBytes = stored.sizeBytes;
+            expiresAt = null;
+            meta = { sourceUrl: asset.url };
+          } catch (err) {
+            logger({ runId: args.runId, toolInvocationId: args.invocationId }).warn({ err }, "generated asset copy to S3 failed; keeping the provider URL");
+          }
+        }
+
         const created = await prisma.attachment.create({
           data: {
             userId: args.userId,
@@ -245,24 +268,27 @@ export function createRunStore(): RunStore {
             status: "READY",
             filename,
             mimeType,
-            url: asset.url,
+            sizeBytes,
+            url,
+            previewUrl: url,
             width: asset.width ?? null,
             height: asset.height ?? null,
             durationMs: asset.durationMs ?? null,
-            expiresAt: asset.expiresAt ? new Date(asset.expiresAt) : null,
+            expiresAt,
+            ...(meta ? { meta } : {}),
           },
         });
         blocks.push({
           type: "asset",
           kind: asset.kind,
-          url: asset.url,
+          url,
           attachmentId: created.id,
           mimeType,
           ...(asset.toolCallId !== undefined ? { toolCallId: asset.toolCallId } : {}),
           ...(asset.width !== undefined ? { width: asset.width } : {}),
           ...(asset.height !== undefined ? { height: asset.height } : {}),
           ...(asset.durationMs !== undefined ? { durationMs: asset.durationMs } : {}),
-          ...(asset.expiresAt !== undefined ? { expiresAt: asset.expiresAt } : {}),
+          ...(expiresAt ? { expiresAt: expiresAt.toISOString() } : {}),
         });
       }
       return blocks;

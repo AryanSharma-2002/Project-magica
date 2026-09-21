@@ -37,6 +37,15 @@ const EnvSchema = z.object({
   ADMISSION_MICROCREDITS: z.coerce.number().int().nonnegative().default(10_000),
   APPROVAL_THRESHOLD_MICROCREDITS: z.coerce.number().int().nonnegative().default(50_000),
 
+  /** S3-compatible media storage (optional). Unset => provider URLs with expiry are kept. The AWS SDK
+   * reads AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY itself; they are listed here only for documentation. */
+  S3_BUCKET: z.string().min(3).optional(),
+  AWS_REGION: z.string().default("us-east-1"),
+  AWS_ACCESS_KEY_ID: z.string().optional(),
+  AWS_SECRET_ACCESS_KEY: z.string().optional(),
+  /** Public base URL for stored objects (CDN or custom domain); defaults to the bucket's virtual-hosted URL. */
+  S3_PUBLIC_BASE_URL: z.string().url().optional(),
+
   /** HMAC secret for outbound webhook signatures when an endpoint has none. */
   WEBHOOK_SIGNING_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(["trace", "debug", "info", "warn", "error"]).default("info"),
@@ -55,7 +64,7 @@ export function getEnv(): Env {
   return cached;
 }
 
-/** Test-only: replace env (vitest setup). */
+/** Test-only: replace env (vitest setup). Partial overrides layer on top of the current parsed env. */
 export function __setEnvForTests(overrides: Partial<Env>): void {
-  cached = EnvSchema.parse({ ...process.env, ...overrides });
+  cached = EnvSchema.parse({ ...process.env, ...(cached ?? {}), ...overrides });
 }

@@ -147,6 +147,22 @@ Docs: `OPENAPI_BASE_URL=https://agent-chat-backend-tan.vercel.app pnpm docs:open
 - Clerk's "verify sign-ins from new devices" (client trust) must stay **off** on this instance: it emails a one-time code to the account's inbox, which reviewers cannot read. It was disabled in the Clerk dashboard on 2026-09-21; re-check Configure → Security before sharing credentials.
 - The deployed app is a Clerk **development** instance (banner "Development mode"); that is acceptable for the trial and works on the vercel.app domain.
 
+## 9c. Media storage (S3)
+
+Without storage, uploads live on Transloadit's temporary result URLs (24 h) and generated assets on Magica's expiring URLs. With an S3 bucket configured, both become durable:
+
+- **Uploads**: the upload Assembly gets a `/s3/store` step (`services/attachments.ts`) writing `uploads/<userId>/<nonce>/<file>` through Transloadit **Template Credentials** named by `TRANSLOADIT_STORE_CREDENTIALS`, with `acl: "bucket-default"`.
+- **Generated assets**: `run-store.saveGeneratedAssets` copies each provider result to `generated/<userId>/<invocationId>/<n>.<ext>` (`src/lib/storage/s3.ts`) and stores that URL with no expiry; the provider URL is kept in `Attachment.meta.sourceUrl`. A failed copy logs and falls back to the provider URL, never failing the run.
+- **Reads** are anonymous: the bucket policy grants `s3:GetObject` on `uploads/*` and `generated/*` only; ACLs stay blocked.
+
+```bash
+# IAM user needs s3:CreateBucket + bucket admin for the first run (AmazonS3FullAccess is fine for the trial), then only object access.
+pnpm exec tsx scripts/provision-s3.ts                       # creates agent-chat-media-<hex> (or uses S3_BUCKET), policy, CORS, probe
+pnpm exec tsx scripts/provision-transloadit-credentials.ts  # registers the bucket with Transloadit as "agent-chat-s3"
+```
+
+Then set `S3_BUCKET`, `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` and `TRANSLOADIT_STORE_CREDENTIALS=agent-chat-s3` in `.env`, on Vercel (backend) and on Trigger prod (the copy runs inside the agent-turn task), and redeploy both. Minimal IAM policy for the app after provisioning: `s3:PutObject`, `s3:GetObject` on `arn:aws:s3:::<bucket>/*`. Rotate the access key after setup if it was ever shared in plain text.
+
 ## 10. Not wired yet
 
 - Transloadit Community (free) plan: uploads are re-encoded and watermarked with a "Created with Transloadit" badge, even the `:original` files (verified 2026-09-21: a 1024x768 PNG came back palettised with the badge top-left). Every uploaded image the chat shows or hands to a Magica tool carries it until the account is on a paid plan or uploads bypass Transloadit.

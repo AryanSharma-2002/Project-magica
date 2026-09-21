@@ -82,6 +82,9 @@ function buildAssemblyParams(args: { userId: string; chatId: string | undefined;
       robot: "/s3/store",
       credentials: env.TRANSLOADIT_STORE_CREDENTIALS,
       path: `uploads/${args.userId}/${args.nonce}/\${file.url_name}`,
+      // The bucket blocks ACLs (owner-enforced objects) and grants anonymous GET on uploads/* through
+      // its policy (scripts/provision-s3.ts); "bucket-default" also drops the PutObjectAcl requirement.
+      acl: "bucket-default",
     };
   }
 
