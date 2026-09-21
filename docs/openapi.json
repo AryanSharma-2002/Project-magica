@@ -10,7 +10,7 @@
       "url": "{baseUrl}/api/v1",
       "variables": {
         "baseUrl": {
-          "default": "http://localhost:3001"
+          "default": "https://agent-chat-backend-tan.vercel.app"
         }
       }
     }

@@ -119,10 +119,26 @@ pnpm docs:dev         # runs `mintlify dev` inside docs/; needs the Mintlify CLI
 
 ## 9. Deploy
 
-- Backend API: Vercel, root of this repo, every variable from `.env.example` set in the project.
-- Tasks: `pnpm db:generate && pnpm trigger:deploy` (the generated Prisma client is gitignored; `agent-skills/` is bundled through `additionalFiles`).
-- Frontend: Vercel with `NEXT_PUBLIC_API_URL` and the Clerk keys. Set the backend's `FRONTEND_ORIGIN` to the deployed frontend URL.
-- Docs: `docs/` to Mintlify.
+Live deployment (2026-09-21): API `https://agent-chat-backend-tan.vercel.app`, Vercel team `aryan-325d`, projects `agent-chat-backend` and `agent-chat-frontend`, Trigger.dev project `Test` (prod environment).
+
+Order matters: database, then Trigger tasks, then the API, then the frontend, then the API again with the frontend origin.
+
+```bash
+npx vercel login                                         # GitHub account that owns the repos
+npx vercel link --yes --project agent-chat-backend       # in this repo; .vercel/ is gitignored
+npx vercel integration add neon -n agent-chat-db         # managed Postgres; accept the marketplace terms once in the browser
+npx vercel env pull .env.production.local                # gets DATABASE_URL from the integration
+printf '%s' "$VALUE" | npx vercel env add NAME production --force   # every variable from .env.example
+printf '%s' 1 | npx vercel env add ENABLE_EXPERIMENTAL_COREPACK production --force   # pnpm 12 via corepack
+DATABASE_URL=<neon url> pnpm db:deploy                   # migrations against the hosted database
+pnpm exec trigger env set --env prod NAME VALUE          # same variables for the tasks (TRIGGER_SECRET_KEY is injected by the platform)
+pnpm db:generate && pnpm trigger:deploy                  # tasks; agent-skills/ ships through additionalFiles
+npx vercel deploy --prod --yes                           # API; vercel.json pins the Next.js preset, build runs prisma generate first
+```
+
+Frontend (in `../agent-chat-frontend`): `npx vercel link --yes --project agent-chat-frontend`, set `NEXT_PUBLIC_API_URL` (the API alias above), the Clerk keys, `NEXT_PUBLIC_CLERK_SIGN_IN_URL`/`SIGN_UP_URL`, `NEXT_PUBLIC_TRIGGER_API_URL`, `ENABLE_EXPERIMENTAL_COREPACK=1`, then `npx vercel deploy --prod --yes`. Then set the backend's `FRONTEND_ORIGIN` to the frontend alias and redeploy the API (env changes need a redeploy). The backend's `TRIGGER_SECRET_KEY` on Vercel must be the **prod** key from the Trigger dashboard, not the dev one.
+
+Docs: `OPENAPI_BASE_URL=https://agent-chat-backend-tan.vercel.app pnpm docs:openapi`, then `docs/` to Mintlify.
 
 ## 10. Not wired yet
 
