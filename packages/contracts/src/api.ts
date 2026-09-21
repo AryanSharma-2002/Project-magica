@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { Id, IsoDate, JsonValue, Microcredits } from "./primitives";
+import { HttpsUrl, Id, IsoDate, JsonValue, Microcredits } from "./primitives";
 import { AgentRun, Attachment, Chat, LedgerEntry, Message, SkillDescriptor } from "./entities";
 import { CursorQuery, Page } from "./pagination";
 import { RealtimeAccess } from "./realtime";
@@ -110,9 +110,11 @@ export type SearchResponse = z.infer<typeof SearchResponse>;
 
 // ---- public API (bonus) ----
 export const PublicCompletionRequest = z.object({
+  /** Continue an existing chat, or omit to create one titled from the message. */
   chatId: Id.optional(),
   message: z.string().min(1).max(20_000),
-  attachmentUrls: z.array(z.string().url()).max(10).default([]),
+  /** Public https URLs the agent may use; each becomes a READY `library` attachment on the message. Never fetched server-side. */
+  attachmentUrls: z.array(HttpsUrl).max(10).default([]),
   planMode: z.boolean().default(false),
 });
 export const PublicCompletionResponse = z.object({ chatId: Id, runId: Id, messageId: Id, assistantMessageId: Id, statusUrl: z.string() });
@@ -127,7 +129,30 @@ export const WebhookEvent = z.object({
   createdAt: IsoDate,
   data: z.object({ runId: Id, chatId: Id, status: z.string(), toolInvocationId: Id.optional(), toolName: z.string().optional() }),
 });
+export const ListWebhooksResponse = z.object({ items: z.array(WebhookEndpoint) });
 export type WebhookEvent = z.infer<typeof WebhookEvent>;
 export type WebhookEndpoint = z.infer<typeof WebhookEndpoint>;
+export type ListWebhooksResponse = z.infer<typeof ListWebhooksResponse>;
 export type PublicCompletionRequest = z.infer<typeof PublicCompletionRequest>;
+export type PublicCompletionResponse = z.infer<typeof PublicCompletionResponse>;
+export type PublicToolRunRequest = z.infer<typeof PublicToolRunRequest>;
+export type PublicToolRunResponse = z.infer<typeof PublicToolRunResponse>;
 export type CreateWebhookRequest = z.infer<typeof CreateWebhookRequest>;
+
+// ---- API keys (credentials for the public API; managed with a Clerk session only) ----
+export const CreateApiKeyRequest = z.object({ name: z.string().min(1).max(100) });
+export const ApiKey = z.object({
+  id: Id,
+  name: z.string(),
+  /** First 12 characters of the plaintext (`ak_live_` + 4), for display. */
+  prefix: z.string(),
+  lastUsedAt: IsoDate.nullable(),
+  revokedAt: IsoDate.nullable(),
+  createdAt: IsoDate,
+  /** Plaintext key. Present ONLY in the create response; only its SHA-256 is stored. */
+  key: z.string().optional(),
+});
+export const ListApiKeysResponse = z.object({ items: z.array(ApiKey) });
+export type CreateApiKeyRequest = z.infer<typeof CreateApiKeyRequest>;
+export type ApiKey = z.infer<typeof ApiKey>;
+export type ListApiKeysResponse = z.infer<typeof ListApiKeysResponse>;

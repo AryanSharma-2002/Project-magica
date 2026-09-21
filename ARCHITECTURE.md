@@ -47,8 +47,8 @@ src/agent/skills/            types.ts, registry.ts, loader-tools.ts
 src/agent/llm/               types.ts, openrouter.ts
 src/agent/loop/              orchestrator: prompt assembly, agent loop, tool execution, persistence checkpoints
 src/agent/providers/magica/  client.ts (run/poll/estimate/catalog), schema-from-catalog.ts
-src/trigger/                 streams.ts, agent-turn.task.ts, magica-tool.task.ts, webhook-deliver.task.ts
-src/services/                chats, messages, runs, attachments (transloadit), credits, search, webhooks, api-keys
+src/trigger/                 streams.ts, agent-turn.task.ts, magica-tool.task.ts, tool-run.task.ts, webhook-deliver.task.ts
+src/services/                chats, messages, runs, send, attachments (transloadit), credits, search, public (completions + tool runs), webhooks, api-keys
 src/app/api/v1/**/route.ts   thin: route(spec, handler) → service call
 agent-skills/<name>/SKILL.md 3+ skills with optional assets
 docs/                        Mintlify (docs.json, mdx, openapi.json)
@@ -181,9 +181,15 @@ Migrations: forward = `prisma migrate deploy`. Rollback notes and compatibility 
 | GET | `/attachments` | clerk | media library picker (cursor, kind, source) |
 | GET | `/credits/balance`, `/credits/ledger` | clerk | |
 | GET | `/search?q=` | clerk | tsvector on messages + trigram on titles, cursor |
-| POST | `/completions` | apiKey | public: message → run (202 + status URL) |
-| POST | `/tools/:name/run` | apiKey | public: standalone Magica tool invocation |
-| GET/POST/DELETE | `/webhooks` | apiKey/clerk | endpoints; outbound events signed `X-AgentChat-Signature: t=<ts>,v1=<hmac-sha256>` |
+| GET/POST | `/api-keys` | clerk | list / create (`ak_live_…` plaintext returned once; SHA-256 stored) |
+| DELETE | `/api-keys/:id` | clerk | revoke (`revokedAt`); revoked keys → 401 |
+| POST | `/completions` | apiKey | public: message → run (202 + `statusUrl` = `/runs/:runId`); `chatId` optional (else a new chat titled from the message); `attachmentUrls` become READY `library` attachments; `Idempotency-Key` honoured |
+| POST | `/tools/:name/run` | apiKey | public: standalone Magica tool invocation, no agent run (202 + `statusUrl` = `/tools/runs/:invocationId`); the `tool-run` task reserves → `magica-tool` child → settles/releases |
+| GET | `/tools/runs/:invocationId` | any | `ToolInvocation` (owner only) |
+| GET/POST | `/webhooks` | any | list / create (`secret` returned once) |
+| DELETE | `/webhooks/:id` | any | |
+
+Webhooks: events `agent.started`, `agent.completed`, `agent.failed` (a cancelled run emits `agent.completed` with `data.status: "cancelled"`), `tool.completed` (every COMPLETED Magica invocation, standalone or in a run). One `WebhookDelivery` per (endpoint, event) with `idempotencyKey = <endpointId>:<eventId>`, delivered by the `webhook-deliver` task (POST JSON `WebhookEvent`, header `X-AgentChat-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256(secret, "<t>.<raw body>")>`, Trigger retries with exponential backoff, `attempts`/`lastError`/`status` updated per attempt). Endpoint URLs must be https and must not resolve to loopback/private ranges (guard disabled in `development` so a local receiver works). Emission points: `agent.started` / `agent.completed|failed` in `agent-turn.task.ts` around the loop; `tool.completed` in `magica-tool.task.ts` after the row is COMPLETED.
 
 Errors: `ApiErrorEnvelope { error: { code, message, retryable, details?, traceId } }`, status from `HTTP_STATUS_BY_CODE`. Unauthorized access to another user's resource → `not_found` (non-leaking).
 
